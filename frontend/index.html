@@ -59,7 +59,7 @@
                         <div class="form-group">
                             <label for="rss-fetch-interval-input">Default Fetch Interval (minutes):</label>
                             <input type="number" id="rss-fetch-interval-input" value="60" min="5" max="1440" required>
-                             <small>Backend scheduler interval. Changes require backend restart or dynamic scheduler update (not implemented here).</small>
+                             <small>Backend scheduler interval. Changes may require backend restart or dynamic scheduler update (advanced).</small>
                         </div>
                         <button type="submit" class="submit-button">Save Interval</button>
                     </form>
@@ -69,7 +69,7 @@
 
                 <div class="setup-block">
                     <h3>Manage RSS Feed URLs</h3>
-                    <p>Add or remove RSS feed sources. Fetch interval can be set per feed (overrides global default if supported by backend logic for individual feeds).</p>
+                    <p>Add or remove RSS feed sources. Fetch interval can be set per feed.</p>
                     <form id="add-rss-feed-form">
                         <div class="form-group">
                             <label for="rss-feed-url-input">New RSS Feed URL:</label>
@@ -87,7 +87,7 @@
                     </form>
                     <h4>Current RSS Feeds in Database:</h4>
                     <ul id="rss-feeds-list"></ul>
-                    </div>
+                </div>
 
                 <div class="setup-block">
                     <h3>AI Prompt Configuration</h3>
@@ -129,6 +129,17 @@
                     <p>Current Summaries API URL: <span id="current-api-url-display">/api/get-news-summaries</span></p>
                     <p>Current Chat API URL: <span id="current-chat-api-url-display">/api/chat-with-article</span></p>
                 </div>
+
+                <div class="setup-block">
+                    <h3>Data Management</h3>
+                    <p>Perform cleanup operations on the stored data.</p>
+                    <div class="form-group">
+                        <label for="days-old-input">Delete articles older than (days):</label>
+                        <input type="number" id="days-old-input" value="30" min="1" max="3650" style="max-width: 100px;">
+                        <button type="button" id="delete-old-data-btn" class="action-button clear-all" style="margin-left:10px;">Delete Old Data</button>
+                    </div>
+                    <p id="delete-status-message" style="margin-top:10px;"></p>
+                </div>
             </section>
         </main>
         <footer>
@@ -137,6 +148,24 @@
             </div>
         </footer>
     </div>
+
+    <div id="regenerate-summary-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <span class="close-button" id="close-regenerate-modal-btn">&times;</span>
+            <h3>Regenerate Summary</h3>
+            <p>Edit the prompt below or use the current default. The placeholder {text} will be replaced with the article content.</p>
+            <form id="regenerate-prompt-form">
+                <div class="form-group">
+                    <label for="modal-summary-prompt-input">Summary Prompt:</label>
+                    <textarea id="modal-summary-prompt-input" rows="5"></textarea>
+                </div>
+                <input type="hidden" id="modal-article-id-input">
+                <button type="submit" class="submit-button">Regenerate</button>
+                <button type="button" id="modal-use-default-prompt-btn" class="action-button" style="margin-left: 10px;">Use Default Prompt</button>
+            </form>
+        </div>
+    </div>
+
     <script src="/static/script.js"></script>
 </body>
 </html>

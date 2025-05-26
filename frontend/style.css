@@ -5,7 +5,7 @@ body {
     line-height: 1.6;
     margin: 0;
     padding: 0;
-    background-color: #f4f7f6; /* Light grayish-blue background */
+    background-color: #f4f7f6; 
     color: #333;
     display: flex;
     flex-direction: column;
@@ -20,39 +20,39 @@ body {
 
 .container {
     width: 90%;
-    max-width: 1200px; /* Increased max-width for better layout on larger screens */
+    max-width: 1200px; 
     margin: 0 auto;
-    padding: 0 15px; /* Added some horizontal padding */
+    padding: 0 15px; 
 }
 
 /* Header */
 header {
-    background: #2c3e50; /* Dark blue-gray */
-    color: #ecf0f1; /* Light gray text */
-    padding: 25px 0; /* Increased padding */
+    background: #2c3e50; 
+    color: #ecf0f1; 
+    padding: 25px 0; 
     text-align: center;
-    border-bottom: 4px solid #1abc9c; /* Teal accent */
+    border-bottom: 4px solid #1abc9c; 
 }
 
 header h1 {
     margin: 0;
     font-family: 'Playfair Display', serif;
-    font-size: 2.8em; /* Slightly larger */
+    font-size: 2.8em; 
     letter-spacing: 1px;
 }
 
 header .tagline {
     margin-top: 8px;
     font-size: 1.1em;
-    color: #bdc3c7; /* Lighter gray for tagline */
+    color: #bdc3c7; 
 }
 
 /* Main Navigation */
 .main-nav {
-    background-color: #34495e; /* Slightly lighter dark blue-gray */
+    background-color: #34495e; 
     padding: 12px 0;
     text-align: center;
-    margin-bottom: 25px; /* Spacing below nav */
+    margin-bottom: 25px; 
 }
 
 .nav-button {
@@ -69,18 +69,18 @@ header .tagline {
 
 .nav-button.active,
 .nav-button:hover {
-    background-color: #1abc9c; /* Teal for active/hover */
+    background-color: #1abc9c; 
     color: #fff;
     border-color: #1abc9c;
 }
 
 .nav-button.refresh-button {
-    background-color: #e74c3c; /* Red for refresh */
+    background-color: #e74c3c; 
     border-color: #e74c3c;
     color: white;
 }
 .nav-button.refresh-button:hover {
-    background-color: #c0392b; /* Darker red on hover */
+    background-color: #c0392b; 
 }
 
 
@@ -88,27 +88,27 @@ header .tagline {
 .feed-filters {
     margin-bottom: 25px;
     display: flex;
-    flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
-    gap: 10px; /* Space between buttons */
-    justify-content: center; /* Center buttons */
+    flex-wrap: wrap; 
+    gap: 10px; 
+    justify-content: center; 
     padding: 10px 0;
-    border-bottom: 1px solid #ddd; /* Separator line */
+    border-bottom: 1px solid #ddd; 
 }
 
 .feed-filters button {
     padding: 8px 15px;
-    border: 1px solid #bdc3c7; /* Mid-gray border */
-    background-color: #fff; /* White background */
-    color: #2c3e50; /* Dark text */
+    border: 1px solid #bdc3c7; 
+    background-color: #fff; 
+    color: #2c3e50; 
     cursor: pointer;
-    border-radius: 20px; /* Pill-shaped buttons */
+    border-radius: 20px; 
     font-size: 0.9em;
     transition: all 0.2s ease-in-out;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .feed-filters button.active {
-    background-color: #16a085; /* Darker teal for active filter */
+    background-color: #16a085; 
     color: white;
     border-color: #16a085;
     font-weight: bold;
@@ -116,24 +116,24 @@ header .tagline {
 }
 
 .feed-filters button:hover:not(.active) {
-    background-color: #ecf0f1; /* Light gray hover */
-    border-color: #95a5a6; /* Darker gray border on hover */
-    transform: translateY(-1px); /* Slight lift effect */
+    background-color: #ecf0f1; 
+    border-color: #95a5a6; 
+    transform: translateY(-1px); 
 }
 
 
 /* Main Content Area */
 main {
     padding: 20px 0;
-    flex-grow: 1; /* Ensure main content takes available space */
+    flex-grow: 1; 
 }
 
 .content-section {
-    display: none; /* Hidden by default, shown by JS */
-    background-color: #ffffff; /* White background for content sections */
+    display: none; 
+    background-color: #ffffff; 
     padding: 25px;
     border-radius: 8px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08); /* Softer shadow */
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08); 
     margin-bottom: 25px;
 }
 
@@ -152,7 +152,7 @@ main {
 
 /* Loading Indicator */
 .loading {
-    display: flex; /* Changed to flex for better alignment */
+    display: flex; 
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -163,13 +163,13 @@ main {
 }
 
 .spinner {
-    border: 5px solid #f3f3f3; /* Light grey */
-    border-top: 5px solid #1abc9c; /* Teal */
+    border: 5px solid #f3f3f3; 
+    border-top: 5px solid #1abc9c; 
     border-radius: 50%;
     width: 40px;
     height: 40px;
     animation: spin 1s linear infinite;
-    margin-bottom: 15px; /* Space between spinner and text */
+    margin-bottom: 15px; 
 }
 
 @keyframes spin {
@@ -180,48 +180,78 @@ main {
 /* Results Grid & Article Cards */
 .results-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); /* Responsive grid */
-    gap: 25px; /* Increased gap */
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); 
+    gap: 25px; 
 }
 
 .article-card {
     background-color: #fff;
-    border: 1px solid #e0e0e0; /* Lighter border */
-    border-radius: 8px; /* More rounded corners */
+    border: 1px solid #e0e0e0; 
+    border-radius: 8px; 
     padding: 20px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.05); /* Subtle shadow */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05); 
     display: flex;
     flex-direction: column;
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    position: relative; /* For absolute positioning of regenerate button */
 }
 .article-card:hover {
     transform: translateY(-5px);
     box-shadow: 0 8px 16px rgba(0,0,0,0.1);
 }
 
+/* Regenerate Summary Button */
+.regenerate-summary-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: #f39c12; /* Orange color */
+    color: white;
+    border: none;
+    border-radius: 50%; /* Circular button */
+    width: 30px;
+    height: 30px;
+    font-size: 16px; /* Adjust for icon size */
+    line-height: 30px; /* Center icon vertically */
+    text-align: center;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: background-color 0.2s;
+    padding: 0; /* Remove padding if using line-height for centering */
+}
+.regenerate-summary-btn:hover {
+    background-color: #e67e22; /* Darker orange */
+}
+/* Simple refresh icon using text, replace with SVG/Font Icon if desired */
+.regenerate-summary-btn::before {
+    content: "\21BB"; /* Unicode clockwise arrow */
+    /* For FontAwesome: content: "\f021"; font-family: FontAwesome; */
+}
+
 
 .article-card h3 {
     font-family: 'Playfair Display', serif;
-    font-size: 1.5em; /* Slightly larger title */
+    font-size: 1.5em; 
     color: #34495e;
     margin-top: 0;
     margin-bottom: 10px;
+    padding-right: 40px; /* Space for the regenerate button */
 }
 
 .article-meta-info {
     font-size: 0.85em;
-    color: #7f8c8d; /* Mid-gray for meta */
+    color: #7f8c8d; 
     margin-bottom: 12px;
     display: flex;
-    flex-wrap: wrap; /* Allow meta items to wrap */
-    gap: 15px; /* Space between meta items */
+    flex-wrap: wrap; 
+    gap: 15px; 
 }
 .article-meta-info span {
-    display: inline-block; /* Ensures they sit nicely with gap */
+    display: inline-block; 
 }
 
 .article-card .source-link {
-    display: inline-block; /* Or block for full width */
+    display: inline-block; 
     margin-bottom: 12px;
     color: #1abc9c;
     text-decoration: none;
@@ -229,7 +259,7 @@ main {
     transition: color 0.2s;
 }
 .article-card .source-link:hover {
-    color: #16a085; /* Darker teal on hover */
+    color: #16a085; 
     text-decoration: underline;
 }
 
@@ -237,13 +267,13 @@ main {
     font-size: 0.95em;
     color: #555;
     margin-bottom: 15px;
-    flex-grow: 1; /* Allow summary to take up available space */
+    flex-grow: 1; 
 }
 
 .article-card .error-message {
     font-size: 0.85em;
-    color: #c0392b; /* Red for errors */
-    background-color: #fadbd8; /* Light red background */
+    color: #c0392b; 
+    background-color: #fadbd8; 
     padding: 8px;
     border-radius: 4px;
     margin-top: 10px;
@@ -256,7 +286,7 @@ main {
 }
 
 .pagination-controls button {
-    background-color: #3498db; /* Blue for pagination */
+    background-color: #3498db; 
     color: white;
     border: none;
     padding: 10px 18px;
@@ -266,10 +296,10 @@ main {
     transition: background-color 0.2s;
 }
 .pagination-controls button:hover:not(:disabled) {
-    background-color: #2980b9; /* Darker blue */
+    background-color: #2980b9; 
 }
 .pagination-controls button:disabled {
-    background-color: #bdc3c7; /* Gray for disabled */
+    background-color: #bdc3c7; 
     cursor: not-allowed;
 }
 .pagination-controls .page-info {
@@ -282,7 +312,7 @@ main {
 .setup-block {
     margin-bottom: 30px;
     padding-bottom: 20px;
-    border-bottom: 1px solid #ecf0f1; /* Light separator */
+    border-bottom: 1px solid #ecf0f1; 
 }
 .setup-block:last-child {
     border-bottom: none;
@@ -307,21 +337,21 @@ main {
 .form-group input[type="text"],
 .form-group input[type="url"],
 .form-group input[type="number"],
-.form-group textarea { /* Added textarea */
+.form-group textarea { 
     width: 100%;
     padding: 12px;
     border: 1px solid #ccc;
     border-radius: 5px;
-    box-sizing: border-box; /* Important for width calculation */
+    box-sizing: border-box; 
     font-size: 1em;
-    font-family: 'Roboto', sans-serif; /* Ensure textarea uses same font */
+    font-family: 'Roboto', sans-serif; 
 }
 .form-group input[type="number"] {
-    max-width: 150px; /* Smaller width for number input */
+    max-width: 150px; 
 }
 .form-group textarea {
-    min-height: 100px; /* Minimum height for textareas */
-    resize: vertical; /* Allow vertical resize */
+    min-height: 100px; 
+    resize: vertical; 
 }
 .form-group small {
     display: block;
@@ -332,7 +362,7 @@ main {
 
 
 .submit-button, .action-button {
-    background-color: #1abc9c; /* Teal */
+    background-color: #1abc9c; 
     color: white;
     padding: 12px 20px;
     border: none;
@@ -342,13 +372,13 @@ main {
     transition: background-color 0.2s;
 }
 .submit-button:hover, .action-button:hover {
-    background-color: #16a085; /* Darker teal */
+    background-color: #16a085; 
 }
 .action-button {
-    background-color: #95a5a6; /* Mid Gray for non-destructive actions like reset */
-    margin-top: 10px; /* For buttons on new line */
+    background-color: #95a5a6; 
+    margin-top: 10px; 
 }
-.action-button.clear-all { /* Specific style for "Clear All" type buttons if needed */
+.action-button.clear-all { 
     background-color: #e74c3c;
 }
 .action-button.clear-all:hover {
@@ -356,20 +386,30 @@ main {
 }
 
 
-#rss-feeds-list, #prioritized-sites-list {
+#rss-feeds-list {
     list-style-type: none;
     padding-left: 0;
 }
-#rss-feeds-list li, #prioritized-sites-list li {
-    background-color: #ecf0f1; /* Light gray background for list items */
+#rss-feeds-list li {
+    background-color: #ecf0f1; 
     padding: 10px;
     margin-bottom: 8px;
     border-radius: 4px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap; /* Allow controls to wrap on small screens */
 }
-.remove-site-btn { /* This class is used for removing RSS feeds too */
+#rss-feeds-list li .feed-details {
+    flex-grow: 1;
+    margin-right: 10px; /* Space before buttons */
+}
+#rss-feeds-list li .feed-controls button {
+    margin-left: 5px;
+}
+
+
+.remove-site-btn, .edit-feed-btn { 
     background-color: #e74c3c;
     color: white;
     border: none;
@@ -381,6 +421,13 @@ main {
 .remove-site-btn:hover {
     background-color: #c0392b;
 }
+.edit-feed-btn {
+    background-color: #3498db; /* Blue for edit */
+}
+.edit-feed-btn:hover {
+    background-color: #2980b9;
+}
+
 
 /* Prompt Preview Styling */
 .prompt-preview {
@@ -388,8 +435,8 @@ main {
     border: 1px dashed #d5dbdb;
     padding: 10px;
     font-size: 0.9em;
-    white-space: pre-wrap; /* Allow text to wrap */
-    word-break: break-all; /* Break long words if necessary */
+    white-space: pre-wrap; 
+    word-break: break-all; 
     border-radius: 4px;
     margin-top: 5px;
     max-height: 150px;
@@ -423,7 +470,7 @@ main {
 }
 .chat-ask-button {
     padding: 8px 15px;
-    background-color: #2980b9; /* Blue for chat ask */
+    background-color: #2980b9; 
     color: white;
     border: none;
     border-radius: 4px;
@@ -431,7 +478,7 @@ main {
     transition: background-color 0.2s;
 }
 .chat-ask-button:hover {
-    background-color: #2471a3; /* Darker blue */
+    background-color: #2471a3; 
 }
 .chat-ask-button:disabled {
     background-color: #bdc3c7;
@@ -439,9 +486,9 @@ main {
 }
 .chat-response {
     font-size: 0.9em;
-    max-height: 150px; /* Limit height and make scrollable */
+    max-height: 150px; 
     overflow-y: auto;
-    background-color: #f9f9f9; /* Light background for chat history */
+    background-color: #f9f9f9; 
     padding: 10px;
     border-radius: 4px;
     border: 1px solid #eee;
@@ -452,20 +499,20 @@ main {
     border-radius: 4px;
     line-height: 1.4;
 }
-.chat-history-q { /* User's question */
-    background-color: #eaf2f8; /* Light blue */
-    text-align: right; /* Align user questions to the right */
-    margin-left: 20%; /* Push user questions to the right */
+.chat-history-q { 
+    background-color: #eaf2f8; 
+    text-align: right; 
+    margin-left: 20%; 
 }
-.chat-history-a { /* AI's answer */
-    background-color: #e8f6f3; /* Light teal/green */
-    margin-right: 20%; /* Push AI answers to the left */
+.chat-history-a { 
+    background-color: #e8f6f3; 
+    margin-right: 20%; 
 }
 .chat-loading {
     color: #555;
     font-style: italic;
 }
-.chat-response .error-message { /* Error specific to chat response */
+.chat-response .error-message { 
     background-color: #fadbd8;
     color: #c0392b;
 }
@@ -473,13 +520,71 @@ main {
 
 /* Footer */
 footer {
-    background: #2c3e50; /* Dark blue-gray */
+    background: #2c3e50; 
     color: #ecf0f1;
     text-align: center;
     padding: 20px 0;
-    margin-top: auto; /* Pushes footer to the bottom */
+    margin-top: auto; 
     font-size: 0.9em;
 }
+
+/* Modal Styling */
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 1000; /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgba(0,0,0,0.5); /* Black w/ opacity */
+    padding-top: 60px; /* Location of the box */
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 5% auto; /* 5% from the top and centered */
+    padding: 25px;
+    border: 1px solid #888;
+    width: 80%; /* Could be more or less, depending on screen size */
+    max-width: 600px; /* Maximum width */
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    position: relative;
+}
+
+.close-button {
+    color: #aaa;
+    float: right; /* Position to the top-right corner */
+    font-size: 28px;
+    font-weight: bold;
+    position: absolute; /* Position relative to modal-content */
+    top: 10px;
+    right: 20px;
+}
+
+.close-button:hover,
+.close-button:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.modal h3 {
+    margin-top: 0;
+    color: #333;
+    font-family: 'Playfair Display', serif;
+}
+.modal p {
+    font-size: 0.95em;
+    color: #555;
+    margin-bottom: 15px;
+}
+.modal .form-group textarea {
+    min-height: 80px; /* Smaller textarea for modal */
+}
+
 
 /* Responsive Adjustments */
 @media (max-width: 768px) {
@@ -488,7 +593,7 @@ footer {
     }
     .nav-button {
         padding: 8px 12px;
-        margin: 5px; /* Allow wrapping */
+        margin: 5px; 
         font-size: 0.9em;
     }
     .main-nav {
@@ -497,14 +602,18 @@ footer {
         justify-content: center;
     }
     .results-grid {
-        grid-template-columns: 1fr; /* Single column on smaller screens */
+        grid-template-columns: 1fr; 
     }
     .feed-filters {
-        padding: 10px; /* Adjust padding for smaller screens */
+        padding: 10px; 
     }
     .feed-filters button {
         font-size: 0.85em;
         padding: 6px 10px;
+    }
+    .modal-content {
+        width: 90%;
+        margin: 10% auto;
     }
 }
 
@@ -534,6 +643,15 @@ footer {
     }
     .pagination-controls .page-info {
         font-size: 0.9em;
+    }
+    .regenerate-summary-btn {
+        width: 28px;
+        height: 28px;
+        line-height: 28px;
+        font-size: 14px;
+    }
+    .article-card h3 {
+        font-size: 1.3em;
     }
 }
 

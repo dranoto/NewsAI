@@ -1,5 +1,7 @@
 // script.js
 document.addEventListener('DOMContentLoaded', async () => {
+    console.log("SCRIPT.JS: DOMContentLoaded event fired. Script execution starting..."); 
+
     // --- DOM Element References ---
     const resultsContainer = document.getElementById('results-container');
     const loadingIndicator = document.getElementById('loading-indicator');
@@ -41,6 +43,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     const setupSection = document.getElementById('setup-section');
     const navMainBtn = document.getElementById('nav-main-btn');
     const navSetupBtn = document.getElementById('nav-setup-btn');
+
+    const deleteOldDataBtn = document.getElementById('delete-old-data-btn');
+    const daysOldInput = document.getElementById('days-old-input');
+    const deleteStatusMessage = document.getElementById('delete-status-message');
+
+    const regenerateSummaryModal = document.getElementById('regenerate-summary-modal');
+    const closeRegenerateModalBtn = document.getElementById('close-regenerate-modal-btn');
+    const regeneratePromptForm = document.getElementById('regenerate-prompt-form');
+    const modalSummaryPromptInput = document.getElementById('modal-summary-prompt-input');
+    const modalArticleIdInput = document.getElementById('modal-article-id-input');
+    const modalUseDefaultPromptBtn = document.getElementById('modal-use-default-prompt-btn');
 
     // --- State Variables ---
     let dbFeedSources = []; 
@@ -90,7 +103,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         responseDiv.innerHTML = '<p class="chat-loading">Loading chat history...</p>'; 
         try {
             const chatHistoryUrl = `${CHAT_API_ENDPOINT_BASE}/article/${articleId}/chat-history`;
-            console.log("Fetching chat history from:", chatHistoryUrl); 
             const response = await fetch(chatHistoryUrl);
             if (!response.ok) {
                 console.error(`Failed to fetch chat history for article ${articleId}: ${response.status}`);
@@ -98,24 +110,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
             const history = await response.json();
-            console.log(`Chat history for article ${articleId}:`, history);
             renderChatHistory(responseDiv, history, articleId); 
         } catch (error) {
             console.error('Error fetching chat history:', error);
-            // Ensure loading message is cleared even on error before renderChatHistory is called
             responseDiv.innerHTML = '<p class="error-message">Error loading chat history.</p>';
         }
     }
 
     function renderChatHistory(responseDiv, historyArray, articleId) { 
         if (!responseDiv) {
-            console.error("renderChatHistory: responseDiv is null for articleId", articleId);
             return;
         }
-        responseDiv.innerHTML = ''; // Clear previous content (including "Loading...")
+        responseDiv.innerHTML = ''; 
         if (!historyArray || historyArray.length === 0) {
-            // Optionally, display a message like "No chat history for this article."
-            // responseDiv.innerHTML = '<p>No chat history for this article.</p>';
             return; 
         } 
         
@@ -140,11 +147,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Initial Configuration Fetch ---
     async function fetchInitialConfig() {
-        console.log("fetchInitialConfig: Starting...");
+        console.log("SCRIPT.JS: fetchInitialConfig: Starting...");
         try {
             const response = await fetch('/api/initial-config'); 
             if (!response.ok) {
-                console.warn('fetchInitialConfig: Failed to fetch initial config from backend.');
+                console.warn('SCRIPT.JS: fetchInitialConfig: Failed to fetch initial config from backend.');
                 defaultSummaryPrompt = "Please summarize: {text}"; 
                 defaultChatPrompt = "Article: {article_text}\nQuestion: {question}\nAnswer:";
                 globalRssFetchInterval = 60;
@@ -152,7 +159,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return; 
             }
             const configData = await response.json();
-            console.log("fetchInitialConfig: Received configData:", configData);
+            console.log("SCRIPT.JS: fetchInitialConfig: Received configData:", configData);
 
             if (!localStorage.getItem('articlesPerPage') && configData.default_articles_per_page) {
                 articlesPerPage = configData.default_articles_per_page;
@@ -163,21 +170,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             defaultChatPrompt = configData.default_chat_prompt || "Context: {article_text}\nQuestion: {question}\nAnswer:";
             globalRssFetchInterval = configData.default_rss_fetch_interval_minutes || 60;
             dbFeedSources = configData.all_db_feed_sources || [];
-            console.log("fetchInitialConfig: dbFeedSources set to:", dbFeedSources);
+            console.log("SCRIPT.JS: fetchInitialConfig: dbFeedSources set to:", dbFeedSources);
 
         } catch (error) {
-            console.error('Error fetching initial config:', error);
+            console.error('SCRIPT.JS: Error fetching initial config:', error);
             defaultSummaryPrompt = "Please summarize the key points of this article: {text}"; 
             defaultChatPrompt = "Based on this article: {article_text}\nWhat is the answer to: {question}?";
             globalRssFetchInterval = 60;
             dbFeedSources = [];
         }
-        console.log("fetchInitialConfig: Finished.");
+        console.log("SCRIPT.JS: fetchInitialConfig: Finished.");
     }
 
     // --- App Initialization ---
     async function initializeAppSettings() {
-        console.log("initializeAppSettings: Starting...");
+        console.log("SCRIPT.JS: initializeAppSettings: Starting...");
         await fetchInitialConfig(); 
 
         SUMMARIES_API_ENDPOINT = localStorage.getItem('newsSummariesApiEndpoint') || '/api/get-news-summaries';
@@ -198,18 +205,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderFeedFilterButtons(); 
         showSection('main-feed-section'); 
 
-        console.log("initializeAppSettings: Checking dbFeedSources.length:", dbFeedSources.length);
+        console.log("SCRIPT.JS: initializeAppSettings: Checking dbFeedSources.length:", dbFeedSources.length);
         if (dbFeedSources.length > 0) {
             activeFeedFilterIds = []; 
-            console.log("initializeAppSettings: Calling fetchAndDisplaySummaries for the first time.");
+            console.log("SCRIPT.JS: initializeAppSettings: Calling fetchAndDisplaySummaries for the first time.");
             fetchAndDisplaySummaries(false, 1); 
         } else {
-            console.log("initializeAppSettings: No DB feed sources found, not calling fetchAndDisplaySummaries initially.");
+            console.log("SCRIPT.JS: initializeAppSettings: No DB feed sources found, not calling fetchAndDisplaySummaries initially.");
             if(resultsContainer) resultsContainer.innerHTML = '<p>No RSS feeds configured in the database. Please add some in the Setup tab.</p>';
             updatePaginationUI(0,0,0,0);
             if (feedFilterControls) renderFeedFilterButtons(); 
         }
-        console.log("initializeAppSettings: Finished.");
+        console.log("SCRIPT.JS: initializeAppSettings: Finished.");
     }
     
     function updateSetupUI() {
@@ -260,22 +267,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         dbFeedSources.forEach((feed) => {
             const li = document.createElement('li');
             let displayName = feed.name || getFeedNameByUrl(feed.url);
-            li.textContent = `${displayName} (URL: ${feed.url}, Interval: ${feed.fetch_interval_minutes}m)`;
             
+            const detailsSpan = document.createElement('span');
+            detailsSpan.classList.add('feed-details');
+            detailsSpan.textContent = `${displayName} (URL: ${feed.url}, Interval: ${feed.fetch_interval_minutes}m)`;
+            li.appendChild(detailsSpan);
+            
+            const controlsDiv = document.createElement('div');
+            controlsDiv.classList.add('feed-controls');
+
             const editBtn = document.createElement('button');
             editBtn.textContent = 'Edit';
             editBtn.classList.add('edit-feed-btn'); 
-            editBtn.style.marginLeft = '10px';
             editBtn.onclick = () => promptEditFeed(feed);
+            controlsDiv.appendChild(editBtn);
 
             const removeBtn = document.createElement('button');
             removeBtn.textContent = 'Remove';
             removeBtn.classList.add('remove-site-btn'); 
             removeBtn.onclick = () => deleteFeedSource(feed.id);
-            
-            const controlsDiv = document.createElement('div');
-            controlsDiv.appendChild(editBtn);
             controlsDiv.appendChild(removeBtn);
+            
             li.appendChild(controlsDiv);
             rssFeedsListUI.appendChild(li);
         });
@@ -298,11 +310,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (newIntervalStr !== null && newIntervalStr.trim() !== "") {
             const newInterval = parseInt(newIntervalStr);
-            if (!isNaN(newInterval) && newInterval > 0 && newInterval !== feed.fetch_interval_minutes) {
+            if (!isNaN(newInterval) && newInterval >= 5 && newInterval !== feed.fetch_interval_minutes) { // Min interval 5
                 updatePayload.fetch_interval_minutes = newInterval;
                 changed = true;
-            } else if (newIntervalStr.trim() !== "" && (isNaN(newInterval) || newInterval <= 0)) {
-                alert("Invalid interval. Please enter a positive number.");
+            } else if (newIntervalStr.trim() !== "" && (isNaN(newInterval) || newInterval < 5)) {
+                alert("Invalid interval. Please enter a positive number (minimum 5 minutes).");
                 return;
             }
         }
@@ -340,8 +352,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!url) { alert("Feed URL is required."); return; }
             if (intervalStr) {
                 const parsedInterval = parseInt(intervalStr);
-                if (isNaN(parsedInterval) || parsedInterval <= 0) {
-                    alert("Invalid fetch interval. Please enter a positive number or leave blank for default.");
+                if (isNaN(parsedInterval) || parsedInterval < 5) { // Min interval 5
+                    alert("Invalid fetch interval. Please enter a positive number (minimum 5 minutes) or leave blank for default.");
                     return;
                 }
                 fetch_interval_minutes = parsedInterval;
@@ -461,10 +473,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 SUMMARIES_API_ENDPOINT = newSummariesApiUrl; localStorage.setItem('newsSummariesApiEndpoint', SUMMARIES_API_ENDPOINT);
                 updated = true;
             }
-            if (newChatApiUrl) { // This should set CHAT_API_ENDPOINT_BASE or ensure it's derived correctly
-                localStorage.setItem('newsChatApiEndpoint', newChatApiUrl); // Store the full path
-                CHAT_API_ENDPOINT_BASE = newChatApiUrl.startsWith('/api/chat-with-article') ? '/api' : newChatApiUrl.substring(0, newChatApiUrl.lastIndexOf('/')); // Try to get base
-                if (!CHAT_API_ENDPOINT_BASE) CHAT_API_ENDPOINT_BASE = '/api'; // Fallback
+            if (newChatApiUrl) { 
+                localStorage.setItem('newsChatApiEndpoint', newChatApiUrl); 
+                CHAT_API_ENDPOINT_BASE = newChatApiUrl.startsWith('/api/chat-with-article') ? '/api' : newChatApiUrl.substring(0, newChatApiUrl.lastIndexOf('/')); 
+                if (!CHAT_API_ENDPOINT_BASE) CHAT_API_ENDPOINT_BASE = '/api'; 
                 updated = true;
             }
             if(updated) {
@@ -478,7 +490,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         contentPrefsForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const newArticlesPerPage = parseInt(numArticlesSetupInput.value);
-            if (newArticlesPerPage >= 1 && newArticlesPerPage <= 20) { // Max 20 as per input
+            if (newArticlesPerPage >= 1 && newArticlesPerPage <= 20) { 
                 articlesPerPage = newArticlesPerPage; 
                 localStorage.setItem('articlesPerPage', articlesPerPage.toString());
                 updateSetupUI(); 
@@ -540,9 +552,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Fetching and Displaying News Summaries (Uses DB) ---
     async function fetchAndDisplaySummaries(forceBackendRssRefresh = false, page = 1) { 
-        console.log(`fetchAndDisplaySummaries: Called. Page: ${page}, Active Filters: ${JSON.stringify(activeFeedFilterIds)}`); // Corrected typo
+        console.log(`SCRIPT.JS: fetchAndDisplaySummaries: Called. Page: ${page}, Active Filters: ${JSON.stringify(activeFeedFilterIds)}`);
         if (!resultsContainer || !loadingIndicator || !loadingText) {
-            console.error("fetchAndDisplaySummaries: Essential DOM elements missing.");
+            console.error("SCRIPT.JS: fetchAndDisplaySummaries: Essential DOM elements missing.");
             return;
         }
         
@@ -551,7 +563,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (activeFeedFilterIds.length > 0) {
             activeFeedNameDisplay = activeFeedFilterIds.map(id => getFeedNameById(id)).join(', ');
         }
-        loadingText.textContent = `Fetching page ${currentPage} for ${activeFeedNameDisplay}...`; // Corrected typo
+        loadingText.textContent = `Fetching page ${currentPage} for ${activeFeedNameDisplay}...`;
         loadingIndicator.style.display = 'flex'; 
         if(resultsContainer) resultsContainer.innerHTML = ''; 
         if(page === 1) { 
@@ -564,7 +576,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             feed_source_ids: activeFeedFilterIds.length > 0 ? activeFeedFilterIds : null, 
             summary_prompt: (currentSummaryPrompt !== defaultSummaryPrompt) ? currentSummaryPrompt : null, 
         };
-        console.log("fetchAndDisplaySummaries: Sending payload:", JSON.stringify(payload));
+        console.log("SCRIPT.JS: fetchAndDisplaySummaries: Sending payload:", JSON.stringify(payload));
         
         try {
             const response = await fetch(SUMMARIES_API_ENDPOINT, { 
@@ -572,14 +584,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 headers: { 'Content-Type': 'application/json' }, 
                 body: JSON.stringify(payload) 
             });
-            console.log("fetchAndDisplaySummaries: API response status:", response.status);
+            console.log("SCRIPT.JS: fetchAndDisplaySummaries: API response status:", response.status);
             if (!response.ok) { 
                 const errorData = await response.json().catch(() => ({ detail: `HTTP error! status: ${response.status}` })); 
-                console.error("fetchAndDisplaySummaries: API Error Data:", errorData);
+                console.error("SCRIPT.JS: fetchAndDisplaySummaries: API Error Data:", errorData);
                 throw new Error(errorData.detail || `HTTP error! status: ${response.status}`); 
             }
             const data = await response.json(); 
-            console.log("fetchAndDisplaySummaries: Received data:", data);
+            console.log("SCRIPT.JS: fetchAndDisplaySummaries: Received data:", data);
             displayResults(data.processed_articles_on_page); 
             totalArticlesAvailable = data.total_articles_available; 
             totalPages = data.total_pages;
@@ -593,13 +605,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
         } catch (error) { 
-            console.error('Error fetching summaries:', error); 
+            console.error('SCRIPT.JS: Error fetching summaries:', error); 
             if(resultsContainer) resultsContainer.innerHTML = `<p class="error-message">Error fetching summaries: ${error.message}.</p>`; 
             updatePaginationUI(0,0,0,0); 
         }
         finally { 
             loadingIndicator.style.display = 'none'; 
-            console.log("fetchAndDisplaySummaries: Finished.");
+            console.log("SCRIPT.JS: fetchAndDisplaySummaries: Finished.");
         }
     }
 
@@ -634,7 +646,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         const renderControls = (container) => {
             if (!container) return; 
             container.innerHTML = ''; 
-            if (totalPgs <= 0) return;
+            if (totalPgs <= 0) { // If no pages or only one page, don't show pagination
+                 if (totalItems > 0 && totalPgs === 1) { // Show page info if only one page but has items
+                    const pageInfo = document.createElement('span'); 
+                    pageInfo.classList.add('page-info');
+                    pageInfo.textContent = `Page ${currentPg} of ${totalPgs} (${totalItems} articles)`;
+                    container.appendChild(pageInfo);
+                 }
+                return;
+            }
 
             const prevButton = document.createElement('button'); 
             prevButton.textContent = '‹ Previous';
@@ -658,21 +678,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function displayResults(articles) { 
-        console.log("displayResults: Called with articles:", articles);
+        console.log("SCRIPT.JS: displayResults: Called with articles:", articles);
         if (!articles || articles.length === 0) {
-            console.log("displayResults: No articles to display.");
+            console.log("SCRIPT.JS: displayResults: No articles to display.");
+            if (resultsContainer && currentPage === 1) { 
+                 resultsContainer.innerHTML = '<p>No articles found for the current selection.</p>';
+            }
             return;
         }
         if (!resultsContainer) {
-            console.error("displayResults: resultsContainer is null!");
+            console.error("SCRIPT.JS: displayResults: resultsContainer is null!");
             return;
         }
+
         articles.forEach((article, index) => {
             const uniqueArticleCardId = `article-db-${article.id}`; 
 
             const articleCard = document.createElement('div'); articleCard.classList.add('article-card');
             articleCard.setAttribute('id', uniqueArticleCardId);
             
+            const regenButton = document.createElement('button');
+            regenButton.classList.add('regenerate-summary-btn');
+            regenButton.title = "Regenerate Summary";
+            regenButton.onclick = () => openRegenerateModal(article.id); 
+            articleCard.appendChild(regenButton);
+
             const titleEl = document.createElement('h3'); titleEl.textContent = article.title || 'No Title Provided'; articleCard.appendChild(titleEl);
             const metaInfo = document.createElement('div'); metaInfo.classList.add('article-meta-info');
             if (article.publisher) { const p = document.createElement('span'); p.classList.add('article-publisher'); p.textContent = `Source: ${article.publisher}`; metaInfo.appendChild(p); }
@@ -681,12 +711,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (article.url) { const l = document.createElement('a'); l.href = article.url; l.textContent = 'Read Full Article'; l.classList.add('source-link'); l.target = '_blank'; l.rel = 'noopener noreferrer'; articleCard.appendChild(l); }
             
-            console.log(`displayResults: Article ID ${article.id}, Summary: '${article.summary ? article.summary.substring(0,30)+"..." : "NULL/EMPTY"}'`);
-            if (article.summary) { const s = document.createElement('p'); s.classList.add('summary'); s.textContent = article.summary; articleCard.appendChild(s); }
+            const summaryP = document.createElement('p');
+            summaryP.classList.add('summary');
+            summaryP.setAttribute('id', `summary-text-${article.id}`); 
+            summaryP.textContent = article.summary || "No summary available.";
+            articleCard.appendChild(summaryP);
             
-            if (article.error_message) { const err = document.createElement('p'); err.classList.add('error-message'); err.textContent = `Note: ${article.error_message}`; articleCard.appendChild(err); }
+            if (article.error_message && !article.summary) { 
+                const err = document.createElement('p'); 
+                err.classList.add('error-message'); 
+                err.textContent = `Note: ${article.error_message}`; 
+                articleCard.appendChild(err); 
+            }
             
-            if (article.id && article.url && !article.error_message && CHAT_API_ENDPOINT_BASE) { 
+            if (article.id && article.url && CHAT_API_ENDPOINT_BASE) { 
                 const chatSectionDiv = document.createElement('div'); 
                 chatSectionDiv.classList.add('chat-section');
                 const chatTitleEl = document.createElement('h4'); 
@@ -721,7 +759,87 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             resultsContainer.appendChild(articleCard);
         });
-        console.log("displayResults: Finished appending article cards.");
+        console.log("SCRIPT.JS: displayResults: Finished appending article cards.");
+    }
+
+    // --- Modal Handling for Regenerate Summary ---
+    function openRegenerateModal(articleId) {
+        if (!regenerateSummaryModal || !modalArticleIdInput || !modalSummaryPromptInput) return;
+        modalArticleIdInput.value = articleId;
+        modalSummaryPromptInput.value = currentSummaryPrompt || defaultSummaryPrompt; 
+        regenerateSummaryModal.style.display = "block";
+    }
+
+    function closeRegenerateModal() {
+        if (regenerateSummaryModal) regenerateSummaryModal.style.display = "none";
+    }
+
+    if (closeRegenerateModalBtn) {
+        closeRegenerateModalBtn.onclick = closeRegenerateModal;
+    }
+    window.onclick = function(event) {
+        if (event.target == regenerateSummaryModal) {
+            closeRegenerateModal();
+        }
+    }
+
+    if (modalUseDefaultPromptBtn) {
+        modalUseDefaultPromptBtn.onclick = () => {
+            if (modalSummaryPromptInput) modalSummaryPromptInput.value = defaultSummaryPrompt;
+        };
+    }
+
+    if (regeneratePromptForm) {
+        regeneratePromptForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const articleId = modalArticleIdInput.value;
+            let customPrompt = modalSummaryPromptInput.value.trim();
+
+            if (!customPrompt) { 
+                customPrompt = defaultSummaryPrompt;
+            } else if (!customPrompt.includes("{text}")) {
+                alert("The custom prompt must include the placeholder {text} to insert the article content.");
+                return;
+            }
+            
+            const articleCardElement = document.getElementById(`article-db-${articleId}`);
+            const summaryElement = document.getElementById(`summary-text-${articleId}`);
+            const regenButton = articleCardElement ? articleCardElement.querySelector('.regenerate-summary-btn') : null;
+
+            if (!summaryElement) {
+                console.error("Could not find summary element for article ID:", articleId);
+                closeRegenerateModal();
+                return;
+            }
+
+            summaryElement.textContent = "Regenerating summary...";
+            if (regenButton) regenButton.disabled = true; 
+
+            try {
+                const response = await fetch(`/api/articles/${articleId}/regenerate-summary`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ custom_prompt: customPrompt })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ detail: `HTTP error ${response.status}` }));
+                    throw new Error(errorData.detail || "Failed to regenerate summary.");
+                }
+                const updatedArticle = await response.json();
+                summaryElement.textContent = updatedArticle.summary || "Summary regenerated, but no content returned.";
+                if (updatedArticle.error_message) {
+                    summaryElement.textContent = `Error: ${updatedArticle.error_message}`;
+                }
+            } catch (error) {
+                console.error("Error regenerating summary:", error);
+                summaryElement.textContent = `Error: ${error.message}`;
+                alert(`Failed to regenerate summary: ${error.message}`);
+            } finally {
+                if (regenButton) regenButton.disabled = false;
+                closeRegenerateModal();
+            }
+        });
     }
 
     // --- Article Chat Handling (Uses article_id from DB) ---
@@ -780,7 +898,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                  }
                  responseDiv.appendChild(aDiv);
             } else { 
-                await fetchChatHistory(articleDbId, responseDiv); // Re-fetch if new item not sent
+                await fetchChatHistory(articleDbId, responseDiv); 
             }
 
         } catch (error) { 
@@ -797,27 +915,83 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
     
+    // --- Data Management (Setup Page) ---
+    if (deleteOldDataBtn) {
+        deleteOldDataBtn.addEventListener('click', async () => {
+            const days = parseInt(daysOldInput.value);
+            if (isNaN(days) || days <= 0) {
+                alert("Please enter a valid positive number of days.");
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to delete all articles (and their summaries/chat history) older than ${days} days? This action cannot be undone.`)) {
+                return;
+            }
+
+            if(deleteStatusMessage) deleteStatusMessage.textContent = "Deleting old data...";
+            try {
+                const response = await fetch(`/api/admin/cleanup-old-data?days_old=${days}`, {
+                    method: 'DELETE'
+                });
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ detail: `HTTP error ${response.status}` }));
+                    throw new Error(errorData.detail || "Failed to delete old data.");
+                }
+                const result = await response.json();
+                alert(result.message || "Old data cleanup process completed.");
+                if(deleteStatusMessage) deleteStatusMessage.textContent = result.message || "Cleanup complete.";
+                fetchAndDisplaySummaries(false, 1); 
+            } catch (error) {
+                console.error("Error deleting old data:", error);
+                alert(`Error: ${error.message}`);
+                if(deleteStatusMessage) deleteStatusMessage.textContent = `Error: ${error.message}`;
+            }
+        });
+    }
+
     // --- Navigation / Section Visibility ---
     function showSection(sectionId) { 
-        if (mainFeedSection) mainFeedSection.classList.remove('active'); 
-        if (setupSection) setupSection.classList.remove('active');
-        if (navMainBtn) navMainBtn.classList.remove('active'); 
-        if (navSetupBtn) navSetupBtn.classList.remove('active');
+        console.log(`SCRIPT.JS: showSection called for: ${sectionId}`);
+        if (!mainFeedSection || !setupSection || !navMainBtn || !navSetupBtn) {
+            console.error("SCRIPT.JS: showSection: One or more navigation/section elements not found.");
+            return;
+        }
+        mainFeedSection.classList.remove('active'); 
+        setupSection.classList.remove('active');
+        navMainBtn.classList.remove('active'); 
+        navSetupBtn.classList.remove('active');
 
         const sectionToShow = document.getElementById(sectionId); 
-        if (sectionToShow) sectionToShow.classList.add('active');
+        if (sectionToShow) {
+            sectionToShow.classList.add('active');
+            console.log(`SCRIPT.JS: Activated section: ${sectionId}`);
+        } else {
+            console.error(`SCRIPT.JS: Section with ID '${sectionId}' not found.`);
+        }
         
-        if (sectionId === 'main-feed-section' && navMainBtn) {
+        if (sectionId === 'main-feed-section') {
             navMainBtn.classList.add('active');
-        } else if (sectionId === 'setup-section' && navSetupBtn) {
+        } else if (sectionId === 'setup-section') {
             navSetupBtn.classList.add('active');
         }
     }
 
     // --- Initialize Event Listeners for Navigation ---
-    if (navMainBtn) navMainBtn.addEventListener('click', () => showSection('main-feed-section'));
-    if (navSetupBtn) navSetupBtn.addEventListener('click', () => showSection('setup-section'));
+    if (navMainBtn) {
+        console.log("SCRIPT.JS: Attaching listener to navMainBtn");
+        navMainBtn.addEventListener('click', () => showSection('main-feed-section'));
+    } else {
+        console.error("SCRIPT.JS: navMainBtn not found!");
+    }
+    if (navSetupBtn) {
+        console.log("SCRIPT.JS: Attaching listener to navSetupBtn");
+        navSetupBtn.addEventListener('click', () => showSection('setup-section'));
+    } else {
+        console.error("SCRIPT.JS: navSetupBtn not found!");
+    }
     
     // --- Final Initialization Call ---
+    console.log("SCRIPT.JS: About to call initializeAppSettings...");
     await initializeAppSettings(); 
+    console.log("SCRIPT.JS: initializeAppSettings call finished.");
 });

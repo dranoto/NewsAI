@@ -1,11 +1,11 @@
 # app/main_api.py
-from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, HttpUrl, Field 
 from typing import List, Optional, Dict, Any 
 import math
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta 
 
 from sqlalchemy.orm import Session as SQLAlchemySession 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -14,7 +14,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from . import rss_client, scraper, summarizer, config as app_config, database 
 from .database import Article, Summary, ChatHistory, RSSFeedSource, get_db, db_session_scope, create_db_and_tables
 
-app = FastAPI(title="News Summarizer API & Frontend (DB & Scheduler)", version="1.4.4") # Version increment
+app = FastAPI(title="News Summarizer API & Frontend (DB & Scheduler)", version="1.5.1") # Version increment
 
 # --- Global Variables & Scheduler ---
 llm_summary_instance: Optional[summarizer.GoogleGenerativeAI] = None
@@ -165,12 +165,16 @@ class UpdateFeedRequest(BaseModel):
     name: Optional[str] = None
     fetch_interval_minutes: Optional[int] = None
 
+class RegenerateSummaryRequest(BaseModel):
+    custom_prompt: Optional[str] = None
+
 
 # --- Helper for Preloading (Modified for DB interaction & robust iteration) ---
 async def _preload_summaries_for_urls(
     article_data_to_preload: List[Dict[str, Any]], 
     custom_summary_prompt: Optional[str] = None 
 ):
+    # ... (This function remains the same as the last version in the Canvas) ...
     if not article_data_to_preload or not llm_summary_instance: 
         if not llm_summary_instance: print("BACKGROUND PRELOAD (DB): Summarization LLM not available. Preload aborted.")
         else: print("BACKGROUND PRELOAD (DB): No articles provided for preloading.")
@@ -191,13 +195,12 @@ async def _preload_summaries_for_urls(
                 print(f"BACKGROUND PRELOAD (DB): Skipping item {i+1} due to missing ID or URL: {article_data}")
                 continue
             
-            try: # Outer try-except for each article in the preload batch
+            try: 
                 article_db_obj = db.query(Article).filter(Article.id == article_id).first()
                 if not article_db_obj:
                     print(f"BACKGROUND PRELOAD (DB): Article ID {article_id} not found in DB. Skipping.")
                     continue
 
-                # Check if a recent, valid summary already exists
                 existing_summary = db.query(Summary)\
                                      .filter(Summary.article_id == article_id)\
                                      .order_by(Summary.created_at.desc())\
@@ -207,13 +210,13 @@ async def _preload_summaries_for_urls(
                    not existing_summary.summary_text.lower().startswith("content empty") and \
                    not existing_summary.summary_text.lower().startswith("content too short"):
                     print(f"BACKGROUND PRELOAD (DB): Article ID {article_id} ({article_url[:50]}...) already has a valid summary. Skipping.")
-                    continue # Skip to the next article in the preload list
+                    continue 
                 
                 scraped_content = article_db_obj.scraped_content
                 
                 if not scraped_content or scraped_content.startswith("Error:") or scraped_content.startswith("Content Error:"):
                     print(f"BACKGROUND PRELOAD (DB): Scraping for Article ID {article_id} ({article_url[:50]}...)")
-                    scraped_docs = await scraper.scrape_urls([article_url], []) # Scrape one at a time for preload
+                    scraped_docs = await scraper.scrape_urls([article_url], []) 
                     current_scraped_content_error = None
                     if scraped_docs and scraped_docs[0]:
                         sc_doc = scraped_docs[0]
@@ -229,19 +232,18 @@ async def _preload_summaries_for_urls(
                         article_db_obj.scraped_content = "Scraping Error: No document returned by scraper."
                         current_scraped_content_error = article_db_obj.scraped_content
                     
-                    db.add(article_db_obj) # Add to session for potential commit
+                    db.add(article_db_obj) 
                     try:
                         db.commit() 
-                        db.refresh(article_db_obj) # Ensure we have the latest state
+                        db.refresh(article_db_obj) 
                     except Exception as e_commit_scrape:
                         db.rollback()
                         print(f"BACKGROUND PRELOAD (DB): Error committing scraped content for Article ID {article_id}: {e_commit_scrape}")
-                        continue # Skip to next article if commit fails
+                        continue 
                     
-                    if current_scraped_content_error: # If scraping resulted in an error, don't try to summarize
+                    if current_scraped_content_error: 
                         print(f"BACKGROUND PRELOAD (DB): Scraping failed for Article ID {article_id}. Error: {current_scraped_content_error}. Skipping summarization.")
                         continue
-
 
                 if scraped_content and not scraped_content.startswith("Error:") and not scraped_content.startswith("Content Error:"):
                     print(f"BACKGROUND PRELOAD (DB): Summarizing Article ID {article_id} ({article_url[:50]}...)")
@@ -267,9 +269,6 @@ async def _preload_summaries_for_urls(
             
             except Exception as e_article_preload:
                 print(f"BACKGROUND PRELOAD (DB): UNHANDLED EXCEPTION while processing Article ID {article_id} (URL: {article_url}): {e_article_preload}")
-                # This specific article failed, but the loop will continue for others.
-                # The session scope will handle overall rollback if this error propagates out,
-                # but individual commits for other articles might have already happened.
             finally:
                 processed_count += 1
         
@@ -279,7 +278,6 @@ async def _preload_summaries_for_urls(
 # --- API Endpoints ---
 @app.get("/api/initial-config", response_model=InitialConfigResponse)
 async def get_initial_config_endpoint(db: SQLAlchemySession = Depends(get_db)):
-    # ... (endpoint remains the same) ...
     db_feeds = db.query(RSSFeedSource).order_by(RSSFeedSource.name).all()
     db_feed_sources_response = [
         {"id": feed.id, "url": feed.url, "name": feed.name, "fetch_interval_minutes": feed.fetch_interval_minutes}
@@ -296,7 +294,6 @@ async def get_initial_config_endpoint(db: SQLAlchemySession = Depends(get_db)):
 
 @app.post("/api/get-news-summaries", response_model=PaginatedSummariesAPIResponse)
 async def get_news_summaries_endpoint(query: NewsPageQuery, background_tasks: BackgroundTasks, db: SQLAlchemySession = Depends(get_db)):
-    # ... (main logic for fetching, scraping, summarizing for current page remains largely the same) ...
     if not llm_summary_instance: 
         raise HTTPException(status_code=503, detail="Summarization service (LLM) unavailable.")
 
@@ -392,6 +389,11 @@ async def get_news_summaries_endpoint(query: NewsPageQuery, background_tasks: Ba
             summary_text = await summarizer.summarize_document_content(
                 lc_doc_to_summarize, llm_summary_instance, query.summary_prompt # type: ignore
             )
+            
+            # Before adding a new summary, delete old ones for this article_id
+            db.query(Summary).filter(Summary.article_id == article_db_id).delete(synchronize_session=False)
+            # print(f"MAIN API: Deleted old summaries for Article ID {article_db_id} before adding new one.")
+
             new_summary_db = Summary(
                 article_id=article_db_id, 
                 summary_text=summary_text,
@@ -444,7 +446,104 @@ async def get_news_summaries_endpoint(query: NewsPageQuery, background_tasks: Ba
         total_pages=total_pages, processed_articles_on_page=results_on_page
     )
 
-# ... (rest of the API endpoints: /api/article/{article_id}/chat-history, /api/chat-with-article, /api/feeds, etc. remain the same) ...
+@app.post("/api/articles/{article_id}/regenerate-summary", response_model=ArticleResult)
+async def regenerate_article_summary(
+    article_id: int, 
+    request: RegenerateSummaryRequest, 
+    db: SQLAlchemySession = Depends(get_db)
+):
+    if not llm_summary_instance:
+        raise HTTPException(status_code=503, detail="Summarization LLM not available.")
+
+    article_db = db.query(Article).filter(Article.id == article_id).first()
+    if not article_db:
+        raise HTTPException(status_code=404, detail="Article not found.")
+
+    print(f"API: Regenerate summary request for Article ID {article_id} with prompt: {'Custom' if request.custom_prompt else 'Default'}")
+
+    scraped_content = article_db.scraped_content
+    if not scraped_content or scraped_content.startswith("Error:") or scraped_content.startswith("Content Error:"):
+        print(f"API: Content for Article ID {article_id} is missing or an error. Re-scraping...")
+        scraped_docs = await scraper.scrape_urls([article_db.url], [])
+        if scraped_docs and scraped_docs[0] and not scraped_docs[0].metadata.get("error") and scraped_docs[0].page_content:
+            scraped_content = scraped_docs[0].page_content
+            article_db.scraped_content = scraped_content
+            db.add(article_db)
+            # db.commit() # Commit separately or let the summary commit handle it below
+        else:
+            error_msg = scraped_docs[0].metadata.get("error", "Failed to re-scrape content") if scraped_docs and scraped_docs[0] else "Failed to re-scrape content"
+            article_db.scraped_content = f"Scraping Error: {error_msg}" # Store error in scraped_content
+            db.add(article_db)
+            db.commit() # Commit the scraping error
+            raise HTTPException(status_code=500, detail=f"Failed to get content for summarization: {error_msg}")
+    
+    if not scraped_content or scraped_content.startswith("Error:") or scraped_content.startswith("Content Error:"): # Double check after potential scrape
+        raise HTTPException(status_code=500, detail="Article content is still invalid after attempting re-scrape.")
+
+
+    lc_doc = scraper.Document(page_content=scraped_content, metadata={"source": article_db.url, "id": article_db.id})
+    
+    prompt_to_use = request.custom_prompt if request.custom_prompt and request.custom_prompt.strip() else app_config.DEFAULT_SUMMARY_PROMPT
+
+    new_summary_text = await summarizer.summarize_document_content(
+        lc_doc, llm_summary_instance, prompt_to_use # type: ignore
+    )
+
+    # Delete existing summaries for this article before adding the new one
+    deleted_count = db.query(Summary).filter(Summary.article_id == article_id).delete(synchronize_session=False)
+    if deleted_count > 0:
+        print(f"API: Deleted {deleted_count} old summary/summaries for Article ID {article_id} before regeneration.")
+    
+    # Save the new summary (this will become the latest and only one)
+    new_summary_db_obj = Summary(
+        article_id=article_id,
+        summary_text=new_summary_text,
+        prompt_used=prompt_to_use,
+        model_used=app_config.DEFAULT_SUMMARY_MODEL_NAME 
+    )
+    db.add(new_summary_db_obj)
+    db.commit()
+    db.refresh(new_summary_db_obj)
+    print(f"API: Regenerated and saved new summary ID {new_summary_db_obj.id} for Article ID {article_id}")
+
+    return ArticleResult(
+        id=article_db.id,
+        title=article_db.title,
+        url=article_db.url,
+        summary=new_summary_text,
+        publisher=article_db.feed_source.name if article_db.feed_source else article_db.publisher_name,
+        published_date=article_db.published_date,
+        source_feed_url=article_db.feed_source.url if article_db.feed_source else None,
+        error_message=None if not new_summary_text.startswith("Error:") else new_summary_text
+    )
+
+@app.delete("/api/admin/cleanup-old-data", status_code=200)
+async def cleanup_old_data_endpoint(days_old: int = Query(30, ge=1), db: SQLAlchemySession = Depends(get_db)):
+    if days_old <= 0:
+        raise HTTPException(status_code=400, detail="days_old parameter must be positive.")
+
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_old)
+    print(f"API: Admin request to delete data older than {days_old} days (before {cutoff_date}).")
+
+    articles_to_delete_query = db.query(Article).filter(Article.published_date < cutoff_date)
+    article_deleted_count = articles_to_delete_query.count() 
+    
+    if article_deleted_count > 0:
+        # Fetch IDs first if direct delete with cascade has issues or for logging
+        # article_ids_to_delete = [article.id for article in articles_to_delete_query.all()]
+        # print(f"API: Will attempt to delete articles with IDs: {article_ids_to_delete}")
+        
+        # The cascade="all, delete-orphan" on Article.summaries and Article.chat_history
+        # should handle deletion of related records when an Article is deleted.
+        articles_to_delete_query.delete(synchronize_session=False)
+        print(f"API: Deleted {article_deleted_count} old article records (and their related summaries/chat history via cascade).")
+    else:
+        print("API: No old articles found to delete based on published_date.")
+
+    db.commit()
+    return {"message": f"Cleanup process completed. Deleted {article_deleted_count} articles (and related data) older than {days_old} days."}
+
+
 @app.get("/api/article/{article_id}/chat-history", response_model=List[ChatHistoryItem])
 async def get_article_chat_history(article_id: int, db: SQLAlchemySession = Depends(get_db)):
     history_items = db.query(ChatHistory).filter(ChatHistory.article_id == article_id).order_by(ChatHistory.timestamp.asc()).all()
@@ -504,7 +603,7 @@ async def chat_with_article_endpoint(query: ChatQuery, db: SQLAlchemySession = D
                 article_id=article_db.id,
                 question=query.question,
                 answer=answer,
-                prompt_used=query.chat_prompt or app_config.DEFAULT_SUMMARY_PROMPT, # Corrected to use DEFAULT_CHAT_PROMPT
+                prompt_used=query.chat_prompt or app_config.DEFAULT_CHAT_PROMPT, 
                 model_used=app_config.DEFAULT_CHAT_MODEL_NAME
             )
             db.add(new_chat_item_db)
