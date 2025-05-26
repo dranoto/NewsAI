@@ -1,90 +1,152 @@
 # app/summarizer.py
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.chains.summarize import load_summarize_chain
+from langchain_google_genai import GoogleGenerativeAI
+from langchain.docstore.document import Document
 from langchain.prompts import PromptTemplate
-from langchain_core.documents import Document
-from langchain_core.messages import HumanMessage, SystemMessage
-from . import config
+from langchain.chains.summarize import load_summarize_chain # Still used for its structure
+from typing import Optional, Any
+from . import config 
 
-def initialize_llm(api_key: str, model_name: str, temperature: float, max_output_tokens: int):
-    """Generic LLM initializer."""
-    if not api_key:
-        raise ValueError("API key is required to initialize the LLM.")
-    return ChatGoogleGenerativeAI(
-        model=model_name,
-        google_api_key=api_key,
-        temperature=temperature,
-        max_output_tokens=max_output_tokens
-    )
-
-def get_summarization_prompt():
-    """Returns the PromptTemplate for news summarization."""
-    prompt_template_text = """Please summarize the following text in English.
-    Keep the summary concise (around 100-150 words) and based only on the provided text.
-    If the text is empty or an error occurs, return 'Content empty'.
-
-    Text:
-    {text}
-
-    Summary:"""
-    return PromptTemplate.from_template(prompt_template_text)
-
-async def summarize_document_content(document: Document, chain) -> str:
-    """Summarizes the content of a single Langchain Document using the provided chain."""
-    if not document or not document.page_content.strip():
-        return "Content empty (document was empty or whitespace)."
-    
-    print(f"Summarizing content from: {document.metadata.get('source', 'N/A')} (Length: {len(document.page_content)})")
+# --- LLM Initialization ---
+def initialize_llm(api_key: str, model_name: str, temperature: float = 0.3, max_output_tokens: int = 1024):
     try:
-        result = await chain.ainvoke({"input_documents": [document]})
-        return result.get("output_text", "Error: Could not extract summary from LLM output.")
+        llm = GoogleGenerativeAI(
+            model=model_name,
+            google_api_key=api_key,
+            temperature=temperature,
+            max_output_tokens=max_output_tokens,
+        )
+        print(f"Successfully initialized LLM: {model_name}")
+        return llm
     except Exception as e:
-        print(f"Error during summarization for {document.metadata.get('source', 'N/A')}: {e}")
-        return f"Error during summarization: {type(e).__name__} - {e}"
+        print(f"Error initializing LLM {model_name}: {e}")
+        return None
 
-async def get_chat_response(chat_llm_instance: ChatGoogleGenerativeAI, article_content: str, question: str) -> str:
-    """
-    Gets a contextual answer from the LLM. Uses article content as primary context,
-    but allows general knowledge if the question implies broader context.
-    """
-    if not chat_llm_instance:
-        return "Error: Chat LLM not initialized."
-    if not question.strip():
-        return "Error: No question provided."
+# --- Summarization Specifics ---
+def get_summarization_prompt_template(custom_prompt_str: Optional[str] = None) -> PromptTemplate:
+    template_str = custom_prompt_str if custom_prompt_str and "{text}" in custom_prompt_str else config.DEFAULT_SUMMARY_PROMPT
+    if custom_prompt_str and "{text}" not in custom_prompt_str:
+        print(f"Warning: Custom summary prompt was provided but is missing '{{text}}' placeholder. Using default prompt.")
+        
+    return PromptTemplate(template=template_str, input_variables=["text"])
 
-    print(f"Attempting chat with {chat_llm_instance.model}. Question: '{question}'")
-    
-    article_context_for_prompt = "No specific article content was provided with this question."
-    if article_content and article_content.strip():
-        max_chars = 15000 
-        article_context_for_prompt = article_content[:max_chars]
-        if len(article_content) > max_chars:
-            article_context_for_prompt += " [Content Truncated]"
-    
-    system_prompt_content = f"""You are a helpful AI assistant. The user is asking a question, and they may have been reading a news article.
-Here is the content of the article they were reading, if available. Use it as primary context for your answer:
----
-Article Content:
-{article_context_for_prompt}
----
-Please answer the user's question.
-- If the question can be directly and fully answered using the provided Article Content, prioritize that information in your response.
-- If the question seems to require general knowledge or background context that goes beyond the provided Article Content (e.g., "Tell me more about the history of X," or "What is the significance of Y?"), you are encouraged to use your broader knowledge base to provide a comprehensive answer. You can still reference the Article Content if it's relevant to the broader topic.
-- If the Article Content is provided but doesn't help answer the question, AND the question is specifically *about what the article itself contains* (e.g., "What did this article say about Z?"), then you should state that the information is not in the provided text.
-- If no Article Content was provided (i.e., the Article Content above says "No specific article content was provided..."), answer the question using your general knowledge.
-- Be informative, helpful, and aim for a conversational tone.
-"""
-
-    messages = [
-        SystemMessage(content=system_prompt_content),
-        HumanMessage(content=question),
-    ]
+async def summarize_document_content(
+    doc: Document, 
+    llm_instance: GoogleGenerativeAI, 
+    custom_prompt_str: Optional[str] = None
+) -> str:
+    if not llm_instance:
+        return "Error: Summarization LLM not available."
+    if not doc.page_content or len(doc.page_content.strip()) < 50: # Basic check
+        print(f"Content too short for URL {doc.metadata.get('source', 'Unknown')}. Length: {len(doc.page_content.strip())}")
+        return "Content too short or empty to summarize."
 
     try:
-        ai_response = await chat_llm_instance.ainvoke(messages)
-        answer = ai_response.content
-        print(f"LLM chat response: {answer}")
-        return answer
+        prompt_template = get_summarization_prompt_template(custom_prompt_str)
+        # The chain is useful for structuring the call, especially 'stuff' method
+        chain = load_summarize_chain(llm_instance, chain_type="stuff", prompt=prompt_template)
+        
+        print(f"Attempting to summarize URL: {doc.metadata.get('source', 'Unknown URL')} with prompt: \"{prompt_template.template[:100]}...\"")
+        # For 'stuff' chain, the input is a list of documents, but here we only have one.
+        # The chain internally extracts page_content.
+        # The `ainvoke` method for chains typically expects a dictionary matching the chain's input keys.
+        # For `load_summarize_chain`, the input key is often 'input_documents'.
+        # However, we are passing a single document's content to a prompt that expects "text".
+        # Let's try invoking the llm_chain part of the summarize_chain directly if it's simpler,
+        # or ensure the input to ainvoke is what the specific chain expects.
+        # The 'stuff' chain's llm_chain takes 'text' as input.
+
+        # If using chain.ainvoke, the input should match the chain's expected input_keys.
+        # For a StuffDocumentsChain, it's typically `{"input_documents": [doc]}`.
+        # The result is often a dict like `{"output_text": "summary..."}`.
+        
+        # Let's simplify and use the LLM directly with the formatted prompt if `load_summarize_chain` is tricky with `ainvoke` for single docs
+        # formatted_prompt_value = await prompt_template.aformat(text=doc.page_content)
+        # summary_output = await llm_instance.ainvoke(formatted_prompt_value)
+        # summary = summary_output if isinstance(summary_output, str) else getattr(summary_output, 'text', str(summary_output))
+
+        # Using the chain's `ainvoke` method:
+        # The StuffDocumentsChain expects a list of documents under the key "input_documents"
+        result = await chain.ainvoke({"input_documents": [doc]})
+        summary = result.get("output_text", "").strip() # Default to empty string if key not found
+
+        if not summary:
+            print(f"Empty summary received from LLM for URL: {doc.metadata.get('source', 'Unknown URL')}")
+            return "Error: Summary generation resulted in empty output."
+        
+        print(f"Successfully summarized URL: {doc.metadata.get('source', 'Unknown URL')}. Summary length: {len(summary)}")
+        return summary
     except Exception as e:
-        print(f"Error during LLM chat interaction: {e}")
-        return f"Error getting answer from AI: {type(e).__name__} - {e}"
+        print(f"ERROR during summarization for doc '{doc.metadata.get('source', 'Unknown URL')}': {e}")
+        # import traceback
+        # traceback.print_exc() # For more detailed error
+        return f"Error generating summary: {str(e)}"
+
+
+# --- Chat Specifics ---
+async def get_chat_response(
+    llm_instance: GoogleGenerativeAI, 
+    article_text: str, 
+    question: str,
+    custom_chat_prompt_str: Optional[str] = None
+) -> str:
+    # ... (This function seems okay, but ensure llm_instance.ainvoke is used correctly) ...
+    # The existing get_chat_response already uses llm_instance.ainvoke(formatted_prompt)
+    # which is the correct modern way for a direct LLM call.
+    # We'll keep it as is but ensure logging is good.
+    if not llm_instance:
+        return "Error: Chat LLM not available."
+
+    final_prompt_str: str
+    input_variables = ["question"] # Default
+
+    if not article_text or len(article_text.strip()) < 20:
+        final_prompt_str = custom_chat_prompt_str if custom_chat_prompt_str and "{question}" in custom_chat_prompt_str else config.CHAT_NO_ARTICLE_PROMPT
+        if "{question}" not in final_prompt_str:
+             final_prompt_str = "I'm sorry, but the article content could not be loaded, so I cannot answer your question about it."
+             prompt = PromptTemplate(template=final_prompt_str, input_variables=[])
+             formatted_prompt = prompt.format()
+        else:
+            prompt = PromptTemplate(template=final_prompt_str, input_variables=["question"])
+            formatted_prompt = prompt.format(question=question)
+    else: 
+        if custom_chat_prompt_str:
+            final_prompt_str = custom_chat_prompt_str
+            if "{article_text}" in final_prompt_str and "{question}" in final_prompt_str:
+                input_variables = ["article_text", "question"]
+            elif "{question}" in final_prompt_str:
+                input_variables = ["question"] # Might ignore article_text
+            else: 
+                print("Warning: Custom chat prompt is missing required placeholders. Using default.")
+                final_prompt_str = config.DEFAULT_CHAT_PROMPT
+                input_variables = ["article_text", "question"]
+        else:
+            final_prompt_str = config.DEFAULT_CHAT_PROMPT
+            input_variables = ["article_text", "question"]
+
+        try:
+            prompt = PromptTemplate(template=final_prompt_str, input_variables=input_variables)
+            if "article_text" in input_variables and "question" in input_variables:
+                formatted_prompt = prompt.format(article_text=article_text, question=question)
+            elif "question" in input_variables:
+                formatted_prompt = prompt.format(question=question)
+            else: 
+                formatted_prompt = final_prompt_str 
+        except Exception as e:
+            print(f"Error formatting chat prompt: {e}. Using raw prompt string.")
+            formatted_prompt = f"Article: {article_text}\nQuestion: {question}" # Basic fallback
+
+    print(f"Attempting chat with prompt: \"{formatted_prompt[:150]}...\"")
+    try:
+        response_obj = await llm_instance.ainvoke(formatted_prompt)
+        answer = response_obj if isinstance(response_obj, str) else getattr(response_obj, 'text', str(response_obj))
+        if not answer.strip():
+            print("Empty answer received from chat LLM.")
+            return "AI returned an empty answer."
+        print(f"Chat LLM returned answer length: {len(answer)}")
+        return answer.strip()
+    except Exception as e:
+        print(f"ERROR getting answer from AI for chat: {e}")
+        # import traceback
+        # traceback.print_exc()
+        return f"Error getting answer from AI: {str(e)}"
+

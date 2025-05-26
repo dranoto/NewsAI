@@ -22,6 +22,9 @@
             <button id="refresh-news-btn" class="nav-button refresh-button">Refresh News Feed</button>
         </nav>
 
+        <div id="feed-filter-controls" class="container feed-filters">
+            </div>
+
         <main class="container">
             <section id="main-feed-section" class="content-section active">
                 <h2>Latest Summaries</h2>
@@ -30,12 +33,9 @@
                     <span id="loading-text">Fetching and summarizing news...</span>
                 </div>
 
-                <div id="pagination-controls-top" class="pagination-controls">
-                    </div>
-                <div id="results-container" class="results-grid">
-                    </div>
-                <div id="pagination-controls-bottom" class="pagination-controls">
-                    </div>
+                <div id="pagination-controls-top" class="pagination-controls"></div>
+                <div id="results-container" class="results-grid"></div>
+                <div id="pagination-controls-bottom" class="pagination-controls"></div>
             </section>
 
             <section id="setup-section" class="content-section">
@@ -64,41 +64,49 @@
                         <button type="submit" class="submit-button">Add Feed</button>
                     </form>
                     <h4>Current RSS Feeds:</h4>
-                    <ul id="rss-feeds-list">
-                        </ul>
+                    <ul id="rss-feeds-list"></ul>
                     <button id="clear-rss-feeds-btn" class="action-button">Clear All RSS Feeds</button>
                 </div>
 
                 <div class="setup-block">
-                    <h3>Prioritized Websites (for Scraper)</h3>
-                    <p>Site keys for potential special scraper handling (e.g., 'wapo', 'nyt'). Currently informational for the simplified scraper.</p>
-                    <form id="add-site-form">
+                    <h3>AI Prompt Configuration</h3>
+                    <p>Customize the prompts used for generating summaries and chat responses. Use {text} for summary article placeholder and {article_text}, {question} for chat placeholders.</p>
+                    <form id="ai-prompts-form">
                         <div class="form-group">
-                            <label for="site-domain">Site Key:</label>
-                            <input type="text" id="site-domain" placeholder="e.g., wapo">
+                            <label for="summary-prompt-input">Summary Prompt:</label>
+                            <textarea id="summary-prompt-input" rows="6" placeholder="Enter your custom summary prompt..."></textarea>
+                            <small>Default will be used if empty. Must contain {text}.</small>
                         </div>
-                        <button type="submit" class="submit-button">Add Site Key</button>
+                        <div class="form-group">
+                            <label for="chat-prompt-input">Chat Prompt:</label>
+                            <textarea id="chat-prompt-input" rows="6" placeholder="Enter your custom chat prompt..."></textarea>
+                             <small>Default will be used if empty. Expected placeholders: {article_text}, {question}. Or for no article: {question}.</small>
+                        </div>
+                        <button type="submit" class="submit-button">Save Prompts</button>
+                        <button type="button" id="reset-prompts-btn" class="action-button" style="margin-left: 10px;">Reset to Defaults</button>
                     </form>
-                    <h4>Current Site Keys:</h4>
-                    <ul id="prioritized-sites-list"></ul>
-                    <button id="clear-prioritized-sites" class="action-button">Clear All Site Keys</button>
+                    <h4>Current Prompts:</h4>
+                    <p><strong>Summary Prompt Preview:</strong></p>
+                    <pre id="current-summary-prompt-display" class="prompt-preview"></pre>
+                    <p><strong>Chat Prompt Preview:</strong></p>
+                    <pre id="current-chat-prompt-display" class="prompt-preview"></pre>
                 </div>
 
                  <div class="setup-block">
-                    <h3>API Endpoints</h3>
+                    <h3>API Endpoints (Advanced)</h3>
                     <form id="api-endpoint-form">
                         <div class="form-group">
                             <label for="api-url">API URL for Summaries:</label>
-                            <input type="text" id="api-url" value="http://localhost:8000/api/get-news-summaries">
+                            <input type="text" id="api-url" value="/api/get-news-summaries">
                         </div>
                          <div class="form-group">
                             <label for="chat-api-url">API URL for Chat:</label>
-                            <input type="text" id="chat-api-url" value="http://localhost:8000/api/chat-with-article">
+                            <input type="text" id="chat-api-url" value="/api/chat-with-article">
                         </div>
                         <button type="submit" class="submit-button">Set API URLs</button>
                     </form>
-                    <p>Current Summaries API URL: <span id="current-api-url-display">http://localhost:8000/api/get-news-summaries</span></p>
-                    <p>Current Chat API URL: <span id="current-chat-api-url-display">http://localhost:8000/api/chat-with-article</span></p>
+                    <p>Current Summaries API URL: <span id="current-api-url-display">/api/get-news-summaries</span></p>
+                    <p>Current Chat API URL: <span id="current-chat-api-url-display">/api/chat-with-article</span></p>
                 </div>
             </section>
         </main>
