@@ -19,7 +19,7 @@
         <nav class="main-nav container">
             <button id="nav-main-btn" class="nav-button active">Main Feed</button>
             <button id="nav-setup-btn" class="nav-button">Setup</button>
-            <button id="refresh-news-btn" class="nav-button refresh-button">Refresh News Feed</button>
+            <button id="refresh-news-btn" class="nav-button refresh-button">Manually Refresh Feeds</button>
         </nav>
 
         <div id="feed-filter-controls" class="container feed-filters">
@@ -46,27 +46,48 @@
                     <form id="content-prefs-form">
                         <div class="form-group">
                             <label for="num_articles_setup">Articles per Page:</label>
-                            <input type="number" id="num_articles_setup" name="num_articles_setup" value="6" min="1" max="12" required>
+                            <input type="number" id="num_articles_setup" name="num_articles_setup" value="6" min="1" max="20" required>
                         </div>
-                        <button type="submit" class="submit-button">Save Preferences</button>
+                        <button type="submit" class="submit-button">Save Page Size</button>
                     </form>
                     <p>Current articles per page: <span id="current-num-articles-display">6</span></p>
                 </div>
+                
+                <div class="setup-block">
+                    <h3>Global RSS Feed Settings</h3>
+                    <form id="global-rss-settings-form">
+                        <div class="form-group">
+                            <label for="rss-fetch-interval-input">Default Fetch Interval (minutes):</label>
+                            <input type="number" id="rss-fetch-interval-input" value="60" min="5" max="1440" required>
+                             <small>Backend scheduler interval. Changes require backend restart or dynamic scheduler update (not implemented here).</small>
+                        </div>
+                        <button type="submit" class="submit-button">Save Interval</button>
+                    </form>
+                    <p>Current default fetch interval: <span id="current-rss-fetch-interval-display">60</span> minutes.</p>
+                </div>
+
 
                 <div class="setup-block">
-                    <h3>RSS Feed URLs</h3>
-                    <p>Add valid RSS feed URLs. The application will fetch articles from these feeds.</p>
+                    <h3>Manage RSS Feed URLs</h3>
+                    <p>Add or remove RSS feed sources. Fetch interval can be set per feed (overrides global default if supported by backend logic for individual feeds).</p>
                     <form id="add-rss-feed-form">
                         <div class="form-group">
-                            <label for="rss-feed-url-input">RSS Feed URL:</label>
+                            <label for="rss-feed-url-input">New RSS Feed URL:</label>
                             <input type="url" id="rss-feed-url-input" placeholder="e.g., https://www.example.com/feed.xml" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="rss-feed-name-input">Feed Name (Optional):</label>
+                            <input type="text" id="rss-feed-name-input" placeholder="e.g., Example News">
+                        </div>
+                        <div class="form-group">
+                            <label for="rss-feed-interval-input">Fetch Interval for this feed (minutes, optional):</label>
+                            <input type="number" id="rss-feed-interval-input" min="5" placeholder="Default: 60">
                         </div>
                         <button type="submit" class="submit-button">Add Feed</button>
                     </form>
-                    <h4>Current RSS Feeds:</h4>
+                    <h4>Current RSS Feeds in Database:</h4>
                     <ul id="rss-feeds-list"></ul>
-                    <button id="clear-rss-feeds-btn" class="action-button">Clear All RSS Feeds</button>
-                </div>
+                    </div>
 
                 <div class="setup-block">
                     <h3>AI Prompt Configuration</h3>

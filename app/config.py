@@ -1,36 +1,38 @@
 # app/config.py
 import os
 from dotenv import load_dotenv
-import json # Added for parsing JSON string from .env
+import json 
 
 load_dotenv() # Load environment variables from .env file
 
-# LLM Configuration - Sensitive, use environment variables
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# --- Database Configuration ---
+SQLITE_DB_SUBDIR = "data"  # Ensures the database is in a subdirectory
+SQLITE_DB_FILE = "newsai.db" # Name of the SQLite database file
+# This constructs the path like ./data/newsai.db relative to the app's CWD
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///./{SQLITE_DB_SUBDIR}/{SQLITE_DB_FILE}")
 
-# Default Model Names (can be overridden by environment variables if needed)
-DEFAULT_SUMMARY_MODEL_NAME = os.getenv("DEFAULT_SUMMARY_MODEL_NAME", "gemini-pro")
-DEFAULT_CHAT_MODEL_NAME = os.getenv("DEFAULT_CHAT_MODEL_NAME", "gemini-pro") 
+# --- LLM Configuration ---
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+DEFAULT_SUMMARY_MODEL_NAME = os.getenv("DEFAULT_SUMMARY_MODEL_NAME", "gemini-1.5-flash-latest")
+DEFAULT_CHAT_MODEL_NAME = os.getenv("DEFAULT_CHAT_MODEL_NAME", "gemini-1.5-flash-latest") 
 
 # --- RSS Feed Configuration ---
-# Load RSS_FEED_URLS from environment variable
-rss_feeds_env_str = os.getenv("RSS_FEED_URLS", "")  # Default to empty string if not found
-
+rss_feeds_env_str = os.getenv("RSS_FEED_URLS", "")  
 if rss_feeds_env_str.strip().startswith("[") and rss_feeds_env_str.strip().endswith("]"):
     try:
         RSS_FEED_URLS = json.loads(rss_feeds_env_str)
-        if not isinstance(RSS_FEED_URLS, list): # Ensure it's a list
+        if not isinstance(RSS_FEED_URLS, list): 
             print("Warning: RSS_FEED_URLS from .env (JSON) did not parse as a list. Falling back.")
             RSS_FEED_URLS = []
     except json.JSONDecodeError:
         print(f"Warning: RSS_FEED_URLS in .env ('{rss_feeds_env_str}') is not valid JSON. Falling back to empty list.")
         RSS_FEED_URLS = []
-elif rss_feeds_env_str: # Handle comma-separated list
+elif rss_feeds_env_str: 
     RSS_FEED_URLS = [url.strip() for url in rss_feeds_env_str.split(',') if url.strip()]
-else: # If RSS_FEED_URLS is not set or empty in .env, default to an empty list
+else: 
     RSS_FEED_URLS = []
 
-# --- Application Behavior Defaults (can be overridden by environment variables) ---
+# --- Application Behavior Defaults ---
 try:
     DEFAULT_PAGE_SIZE = int(os.getenv("DEFAULT_PAGE_SIZE", 6)) 
 except ValueError:
@@ -43,11 +45,17 @@ except ValueError:
     print("Warning: Invalid MAX_ARTICLES_PER_INDIVIDUAL_FEED in .env. Using default 15.")
     MAX_ARTICLES_PER_INDIVIDUAL_FEED = 15
 
+try:
+    DEFAULT_RSS_FETCH_INTERVAL_MINUTES = int(os.getenv("DEFAULT_RSS_FETCH_INTERVAL_MINUTES", 60)) 
+except ValueError:
+    print("Warning: Invalid DEFAULT_RSS_FETCH_INTERVAL_MINUTES in .env. Using default 60.")
+    DEFAULT_RSS_FETCH_INTERVAL_MINUTES = 60
+
 
 # Scraper Configuration
-SITES_REQUIRING_PLAYWRIGHT: list[str] = ["wsj.com", "ft.com"] # Example, not currently used by UI
+SITES_REQUIRING_PLAYWRIGHT: list[str] = ["wsj.com", "ft.com"] 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-REQUEST_TIMEOUT = 10  # seconds for HTTP requests in Newspaper3k
+REQUEST_TIMEOUT = 10  
 
 # Default AI Prompts
 DEFAULT_SUMMARY_PROMPT = os.getenv("DEFAULT_SUMMARY_PROMPT", """Please provide a concise summary of the following article.
@@ -81,16 +89,16 @@ Response:""")
 
 
 # Playwright specific settings
-PLAYWRIGHT_TIMEOUT = 30000  # 30 seconds for Playwright operations
+PLAYWRIGHT_TIMEOUT = 30000  
 
-# Simple check for critical environment variables
 if not GEMINI_API_KEY:
     print("WARNING: GEMINI_API_KEY environment variable is not set. LLM features will be impaired.")
 
-# For debugging during startup:
+print(f"CONFIG LOADED: DATABASE_URL: {DATABASE_URL}") # Crucial log
 print(f"CONFIG LOADED: GEMINI_API_KEY Set: {'Yes' if GEMINI_API_KEY else 'NO'}")
 print(f"CONFIG LOADED: DEFAULT_SUMMARY_MODEL_NAME: {DEFAULT_SUMMARY_MODEL_NAME}")
 print(f"CONFIG LOADED: DEFAULT_CHAT_MODEL_NAME: {DEFAULT_CHAT_MODEL_NAME}")
 print(f"CONFIG LOADED: RSS_FEED_URLS from ENV: {RSS_FEED_URLS}")
 print(f"CONFIG LOADED: DEFAULT_PAGE_SIZE: {DEFAULT_PAGE_SIZE}")
 print(f"CONFIG LOADED: MAX_ARTICLES_PER_INDIVIDUAL_FEED: {MAX_ARTICLES_PER_INDIVIDUAL_FEED}")
+print(f"CONFIG LOADED: DEFAULT_RSS_FETCH_INTERVAL_MINUTES: {DEFAULT_RSS_FETCH_INTERVAL_MINUTES}")

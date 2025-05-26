@@ -1,10 +1,10 @@
 // script.js
 document.addEventListener('DOMContentLoaded', async () => {
-    // Main Feed Elements
+    // --- DOM Element References ---
     const resultsContainer = document.getElementById('results-container');
     const loadingIndicator = document.getElementById('loading-indicator');
     const loadingText = document.getElementById('loading-text');
-    const refreshNewsBtn = document.getElementById('refresh-news-btn');
+    const refreshNewsBtn = document.getElementById('refresh-news-btn'); 
     const paginationControlsTop = document.getElementById('pagination-controls-top');
     const paginationControlsBottom = document.getElementById('pagination-controls-bottom');
     const feedFilterControls = document.getElementById('feed-filter-controls');
@@ -14,12 +14,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     const numArticlesSetupInput = document.getElementById('num_articles_setup');
     const currentNumArticlesDisplay = document.getElementById('current-num-articles-display');
 
+    const globalRssSettingsForm = document.getElementById('global-rss-settings-form');
+    const rssFetchIntervalInput = document.getElementById('rss-fetch-interval-input');
+    const currentRssFetchIntervalDisplay = document.getElementById('current-rss-fetch-interval-display');
+
     const addRssFeedForm = document.getElementById('add-rss-feed-form');
     const rssFeedUrlInput = document.getElementById('rss-feed-url-input');
+    const rssFeedNameInput = document.getElementById('rss-feed-name-input');
+    const rssFeedIntervalInput = document.getElementById('rss-feed-interval-input');
     const rssFeedsListUI = document.getElementById('rss-feeds-list');
-    const clearRssFeedsBtn = document.getElementById('clear-rss-feeds-btn');
 
-    // AI Prompts Configuration Elements
     const aiPromptsForm = document.getElementById('ai-prompts-form');
     const summaryPromptInput = document.getElementById('summary-prompt-input');
     const chatPromptInput = document.getElementById('chat-prompt-input');
@@ -33,30 +37,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     const currentApiUrlDisplay = document.getElementById('current-api-url-display');
     const currentChatApiUrlDisplay = document.getElementById('current-chat-api-url-display');
 
-    // Navigation
     const mainFeedSection = document.getElementById('main-feed-section');
     const setupSection = document.getElementById('setup-section');
     const navMainBtn = document.getElementById('nav-main-btn');
     const navSetupBtn = document.getElementById('nav-setup-btn');
 
-    // State Variables
-    let rssFeedUrls = []; 
+    // --- State Variables ---
+    let dbFeedSources = []; 
     let SUMMARIES_API_ENDPOINT = '/api/get-news-summaries'; 
-    let CHAT_API_ENDPOINT = '/api/chat-with-article';   
+    let CHAT_API_ENDPOINT_BASE = '/api'; 
     let articlesPerPage = 6; 
     let currentPage = 1;
     let totalPages = 1;
     let totalArticlesAvailable = 0;
-    let activeFeedFilter = null; 
+    let activeFeedFilterIds = []; 
 
     let currentSummaryPrompt = '';
     let currentChatPrompt = '';
     let defaultSummaryPrompt = ''; 
     let defaultChatPrompt = '';   
+    let globalRssFetchInterval = 60; 
 
-    // --- Utility Function: Get Feed Name ---
-    // Moved to a higher scope to be accessible by multiple functions
-    const getFeedName = (url) => {
+    // --- Utility Function: Get Feed Name (from dbFeedSources) ---
+    const getFeedNameById = (feedId) => {
+        const feed = dbFeedSources.find(f => f.id === feedId);
+        return feed ? (feed.name || feed.url.split('/')[2].replace(/^www\./, '') || 'Unknown Feed') : 'Unknown Feed';
+    };
+    const getFeedNameByUrl = (url) => { 
         if (!url) return 'Unknown Feed';
         try {
             const urlObj = new URL(url);
@@ -65,42 +72,54 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (pathParts.length > 0) {
                 const potentialName = pathParts[pathParts.length - 1].replace(/\.(xml|rss|atom)/i, '');
                 if (potentialName.length > 3 && potentialName.length < 25) name = potentialName;
-                else if (name.length + potentialName.length < 30 && potentialName) name += ` (${potentialName})`;
+                else if (name.length + (potentialName?.length || 0) < 30 && potentialName) name += ` (${potentialName})`;
             }
             return name.length > 35 ? name.substring(0, 32) + "..." : name;
         } catch (e) {
-            // Fallback for invalid URLs or other issues
             const simpleName = url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
             return simpleName.length > 35 ? simpleName.substring(0, 32) + "..." : simpleName;
         }
     };
 
-    // --- Chat History Management ---
-    function getChatHistory(articleUrl) {
+    // --- Chat History Management (Now Fetches from Backend) ---
+    async function fetchChatHistory(articleId, responseDiv) {
+        if (!responseDiv) {
+            console.error("fetchChatHistory: responseDiv is null for articleId", articleId);
+            return;
+        }
+        responseDiv.innerHTML = '<p class="chat-loading">Loading chat history...</p>'; 
         try {
-            return JSON.parse(localStorage.getItem(`chatHistory_${articleUrl}`)) || [];
-        } catch (e) {
-            console.error("Error parsing chat history from localStorage:", e);
-            return []; 
+            const chatHistoryUrl = `${CHAT_API_ENDPOINT_BASE}/article/${articleId}/chat-history`;
+            console.log("Fetching chat history from:", chatHistoryUrl); 
+            const response = await fetch(chatHistoryUrl);
+            if (!response.ok) {
+                console.error(`Failed to fetch chat history for article ${articleId}: ${response.status}`);
+                responseDiv.innerHTML = `<p class="error-message">Could not load chat history (Status: ${response.status}).</p>`;
+                return;
+            }
+            const history = await response.json();
+            console.log(`Chat history for article ${articleId}:`, history);
+            renderChatHistory(responseDiv, history, articleId); 
+        } catch (error) {
+            console.error('Error fetching chat history:', error);
+            // Ensure loading message is cleared even on error before renderChatHistory is called
+            responseDiv.innerHTML = '<p class="error-message">Error loading chat history.</p>';
         }
     }
 
-    function saveChatHistory(articleUrl, question, answer) {
-        const history = getChatHistory(articleUrl);
-        history.push({ question, answer });
-        try {
-            localStorage.setItem(`chatHistory_${articleUrl}`, JSON.stringify(history));
-        } catch (e) { // Corrected line: Removed stray 'M'
-            console.error("Error saving chat history to localStorage:", e);
+    function renderChatHistory(responseDiv, historyArray, articleId) { 
+        if (!responseDiv) {
+            console.error("renderChatHistory: responseDiv is null for articleId", articleId);
+            return;
         }
-    }
-
-    function renderChatHistory(responseDiv, articleUrl) {
-        const history = getChatHistory(articleUrl);
-        responseDiv.innerHTML = ''; 
-        if (history.length === 0) return; 
+        responseDiv.innerHTML = ''; // Clear previous content (including "Loading...")
+        if (!historyArray || historyArray.length === 0) {
+            // Optionally, display a message like "No chat history for this article."
+            // responseDiv.innerHTML = '<p>No chat history for this article.</p>';
+            return; 
+        } 
         
-        history.forEach(chat => {
+        historyArray.forEach(chat => {
             const qDiv = document.createElement('div');
             qDiv.classList.add('chat-history-q');
             qDiv.textContent = `You: ${chat.question}`;
@@ -108,7 +127,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const aDiv = document.createElement('div');
             aDiv.classList.add('chat-history-a');
-            aDiv.textContent = `AI: ${chat.answer}`; 
+            aDiv.textContent = `AI: ${chat.answer || "Processing..."}`; 
             if (chat.answer && (chat.answer.startsWith("AI Error:") || chat.answer.startsWith("Error:"))) { 
                 aDiv.classList.add('error-message');
             }
@@ -121,66 +140,84 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Initial Configuration Fetch ---
     async function fetchInitialConfig() {
+        console.log("fetchInitialConfig: Starting...");
         try {
             const response = await fetch('/api/initial-config'); 
             if (!response.ok) {
-                console.warn('Failed to fetch initial config from backend, using local defaults/localStorage.');
+                console.warn('fetchInitialConfig: Failed to fetch initial config from backend.');
                 defaultSummaryPrompt = "Please summarize: {text}"; 
                 defaultChatPrompt = "Article: {article_text}\nQuestion: {question}\nAnswer:";
+                globalRssFetchInterval = 60;
+                dbFeedSources = []; 
                 return; 
             }
             const configData = await response.json();
-            console.log("Fetched initial config from backend:", configData);
+            console.log("fetchInitialConfig: Received configData:", configData);
 
-            if (!localStorage.getItem('rssFeedUrls') && configData.default_rss_feeds && configData.default_rss_feeds.length > 0) {
-                rssFeedUrls = configData.default_rss_feeds;
-                localStorage.setItem('rssFeedUrls', JSON.stringify(rssFeedUrls));
-            }
             if (!localStorage.getItem('articlesPerPage') && configData.default_articles_per_page) {
                 articlesPerPage = configData.default_articles_per_page;
                 localStorage.setItem('articlesPerPage', articlesPerPage.toString());
             }
+            
             defaultSummaryPrompt = configData.default_summary_prompt || "Summarize: {text}";
             defaultChatPrompt = configData.default_chat_prompt || "Context: {article_text}\nQuestion: {question}\nAnswer:";
+            globalRssFetchInterval = configData.default_rss_fetch_interval_minutes || 60;
+            dbFeedSources = configData.all_db_feed_sources || [];
+            console.log("fetchInitialConfig: dbFeedSources set to:", dbFeedSources);
+
         } catch (error) {
             console.error('Error fetching initial config:', error);
             defaultSummaryPrompt = "Please summarize the key points of this article: {text}"; 
             defaultChatPrompt = "Based on this article: {article_text}\nWhat is the answer to: {question}?";
+            globalRssFetchInterval = 60;
+            dbFeedSources = [];
         }
+        console.log("fetchInitialConfig: Finished.");
     }
 
     // --- App Initialization ---
     async function initializeAppSettings() {
+        console.log("initializeAppSettings: Starting...");
         await fetchInitialConfig(); 
 
-        rssFeedUrls = JSON.parse(localStorage.getItem('rssFeedUrls')) || []; 
         SUMMARIES_API_ENDPOINT = localStorage.getItem('newsSummariesApiEndpoint') || '/api/get-news-summaries';
-        CHAT_API_ENDPOINT = localStorage.getItem('newsChatApiEndpoint') || '/api/chat-with-article';
-        articlesPerPage = parseInt(localStorage.getItem('articlesPerPage')) || 6;
+        const chatApiUrlFromStorage = localStorage.getItem('newsChatApiEndpoint');
+        if (chatApiUrlFromStorage) {
+            CHAT_API_ENDPOINT_BASE = chatApiUrlFromStorage.startsWith('/api/chat-with-article') ? '/api' : chatApiUrlFromStorage;
+        } else {
+            CHAT_API_ENDPOINT_BASE = '/api';
+        }
+
+        articlesPerPage = parseInt(localStorage.getItem('articlesPerPage')) || articlesPerPage; 
 
         currentSummaryPrompt = localStorage.getItem('customSummaryPrompt') || defaultSummaryPrompt;
         currentChatPrompt = localStorage.getItem('customChatPrompt') || defaultChatPrompt;
 
         updateSetupUI(); 
-
-        renderRssFeeds(); 
+        renderRssFeedsListUI(); 
         renderFeedFilterButtons(); 
         showSection('main-feed-section'); 
 
-        if (rssFeedUrls.length > 0) {
-            fetchAndDisplaySummaries(true, 1); 
+        console.log("initializeAppSettings: Checking dbFeedSources.length:", dbFeedSources.length);
+        if (dbFeedSources.length > 0) {
+            activeFeedFilterIds = []; 
+            console.log("initializeAppSettings: Calling fetchAndDisplaySummaries for the first time.");
+            fetchAndDisplaySummaries(false, 1); 
         } else {
-            if(resultsContainer) resultsContainer.innerHTML = '<p>Please configure RSS feeds in the Setup tab to see news.</p>';
+            console.log("initializeAppSettings: No DB feed sources found, not calling fetchAndDisplaySummaries initially.");
+            if(resultsContainer) resultsContainer.innerHTML = '<p>No RSS feeds configured in the database. Please add some in the Setup tab.</p>';
             updatePaginationUI(0,0,0,0);
-            if (feedFilterControls) renderFeedFilterButtons();
+            if (feedFilterControls) renderFeedFilterButtons(); 
         }
+        console.log("initializeAppSettings: Finished.");
     }
     
     function updateSetupUI() {
         if(currentApiUrlDisplay) currentApiUrlDisplay.textContent = SUMMARIES_API_ENDPOINT;
         if(apiUrlInput) apiUrlInput.value = SUMMARIES_API_ENDPOINT;
-        if(currentChatApiUrlDisplay) currentChatApiUrlDisplay.textContent = CHAT_API_ENDPOINT;
-        if(chatApiUrlInput) chatApiUrlInput.value = CHAT_API_ENDPOINT;
+        if(currentChatApiUrlDisplay) currentChatApiUrlDisplay.textContent = `${CHAT_API_ENDPOINT_BASE}/chat-with-article`; 
+        if(chatApiUrlInput) chatApiUrlInput.value = `${CHAT_API_ENDPOINT_BASE}/chat-with-article`;
+
         if(numArticlesSetupInput) numArticlesSetupInput.value = articlesPerPage;
         if(currentNumArticlesDisplay) currentNumArticlesDisplay.textContent = articlesPerPage;
 
@@ -188,62 +225,191 @@ document.addEventListener('DOMContentLoaded', async () => {
         if(chatPromptInput) chatPromptInput.value = currentChatPrompt;
         if(currentSummaryPromptDisplay) currentSummaryPromptDisplay.textContent = currentSummaryPrompt;
         if(currentChatPromptDisplay) currentChatPromptDisplay.textContent = currentChatPrompt;
+
+        if(rssFetchIntervalInput) rssFetchIntervalInput.value = globalRssFetchInterval;
+        if(currentRssFetchIntervalDisplay) currentRssFetchIntervalDisplay.textContent = globalRssFetchInterval;
     }
 
+    // --- RSS Feed Management (Setup Tab - interacts with DB via API) ---
+    async function loadAndRenderDbFeeds() { 
+        try {
+            const response = await fetch('/api/feeds');
+            if (!response.ok) {
+                console.error("Failed to fetch feed sources from DB:", response.status);
+                alert("Error: Could not load feed sources from database.");
+                dbFeedSources = [];
+            } else {
+                dbFeedSources = await response.json();
+            }
+        } catch (error) {
+            console.error("Error fetching DB feed sources:", error);
+            alert("Error: Could not connect to API to load feed sources.");
+            dbFeedSources = [];
+        }
+        renderRssFeedsListUI();
+        renderFeedFilterButtons();
+    }
 
-    // --- RSS Feed Management (Setup Tab) ---
-    function renderRssFeeds() {
+    function renderRssFeedsListUI() { 
         if (!rssFeedsListUI) return;
         rssFeedsListUI.innerHTML = '';
-        rssFeedUrls.forEach((feedUrl, index) => {
+        if (dbFeedSources.length === 0) {
+            rssFeedsListUI.innerHTML = '<li>No RSS feeds configured in the database.</li>';
+            return;
+        }
+        dbFeedSources.forEach((feed) => {
             const li = document.createElement('li');
-            li.textContent = feedUrl;
+            let displayName = feed.name || getFeedNameByUrl(feed.url);
+            li.textContent = `${displayName} (URL: ${feed.url}, Interval: ${feed.fetch_interval_minutes}m)`;
+            
+            const editBtn = document.createElement('button');
+            editBtn.textContent = 'Edit';
+            editBtn.classList.add('edit-feed-btn'); 
+            editBtn.style.marginLeft = '10px';
+            editBtn.onclick = () => promptEditFeed(feed);
+
             const removeBtn = document.createElement('button');
             removeBtn.textContent = 'Remove';
-            removeBtn.classList.add('remove-site-btn');
-            removeBtn.onclick = () => removeRssFeed(index);
-            li.appendChild(removeBtn);
+            removeBtn.classList.add('remove-site-btn'); 
+            removeBtn.onclick = () => deleteFeedSource(feed.id);
+            
+            const controlsDiv = document.createElement('div');
+            controlsDiv.appendChild(editBtn);
+            controlsDiv.appendChild(removeBtn);
+            li.appendChild(controlsDiv);
             rssFeedsListUI.appendChild(li);
         });
-        if (feedFilterControls) renderFeedFilterButtons(); 
     }
+    
+    async function promptEditFeed(feed) {
+        const newName = prompt("Enter new name for the feed (or leave blank to keep current):", feed.name || "");
+        const newIntervalStr = prompt(`Enter new fetch interval in minutes for "${feed.name || feed.url}" (leave blank to keep ${feed.fetch_interval_minutes}m):`, feed.fetch_interval_minutes);
 
-    function addRssFeed(url) {
-        const trimmedUrl = url.trim();
-        if (trimmedUrl) {
-            try { 
-                new URL(trimmedUrl); 
-                if (!rssFeedUrls.includes(trimmedUrl)) {
-                    rssFeedUrls.push(trimmedUrl); 
-                    localStorage.setItem('rssFeedUrls', JSON.stringify(rssFeedUrls)); 
-                    renderRssFeeds(); 
-                } else {
-                    alert("This RSS feed URL is already in the list.");
-                }
-            } catch (_) { 
-                alert("Please enter a valid URL for the RSS feed."); 
+        const updatePayload = {};
+        let changed = false;
+
+        if (newName !== null && newName.trim() !== (feed.name || "")) { 
+            updatePayload.name = newName.trim() === "" ? null : newName.trim(); 
+            changed = true;
+        } else if (newName !== null && newName.trim() === "" && feed.name !== null) { 
+            updatePayload.name = null;
+            changed = true;
+        }
+
+        if (newIntervalStr !== null && newIntervalStr.trim() !== "") {
+            const newInterval = parseInt(newIntervalStr);
+            if (!isNaN(newInterval) && newInterval > 0 && newInterval !== feed.fetch_interval_minutes) {
+                updatePayload.fetch_interval_minutes = newInterval;
+                changed = true;
+            } else if (newIntervalStr.trim() !== "" && (isNaN(newInterval) || newInterval <= 0)) {
+                alert("Invalid interval. Please enter a positive number.");
+                return;
             }
         }
-    }
-    function removeRssFeed(indexToRemove) {
-        const removedFeedUrl = rssFeedUrls[indexToRemove];
-        rssFeedUrls.splice(indexToRemove, 1); 
-        localStorage.setItem('rssFeedUrls', JSON.stringify(rssFeedUrls)); 
-        renderRssFeeds();
-        if (activeFeedFilter === removedFeedUrl) { 
-            activeFeedFilter = null;
-            fetchAndDisplaySummaries(false, 1); 
+
+        if (changed) {
+            try {
+                const response = await fetch(`/api/feeds/${feed.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatePayload)
+                });
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({detail: `HTTP error ${response.status}`}));
+                    throw new Error(errorData.detail || `Failed to update feed.`);
+                }
+                alert("Feed updated successfully!");
+                await loadAndRenderDbFeeds(); 
+            } catch (error) {
+                console.error("Error updating feed:", error);
+                alert(`Error updating feed: ${error.message}`);
+            }
+        } else {
+            alert("No changes made to the feed.");
         }
     }
-    function clearAllRssFeeds() {
-        rssFeedUrls = []; 
-        localStorage.removeItem('rssFeedUrls'); 
-        renderRssFeeds();
-        activeFeedFilter = null; 
-        fetchAndDisplaySummaries(false, 1); 
+
+    if (addRssFeedForm) {
+        addRssFeedForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const url = rssFeedUrlInput.value.trim();
+            const name = rssFeedNameInput.value.trim();
+            const intervalStr = rssFeedIntervalInput.value.trim();
+            let fetch_interval_minutes = globalRssFetchInterval; 
+
+            if (!url) { alert("Feed URL is required."); return; }
+            if (intervalStr) {
+                const parsedInterval = parseInt(intervalStr);
+                if (isNaN(parsedInterval) || parsedInterval <= 0) {
+                    alert("Invalid fetch interval. Please enter a positive number or leave blank for default.");
+                    return;
+                }
+                fetch_interval_minutes = parsedInterval;
+            }
+
+            try {
+                const response = await fetch('/api/feeds', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, name: name || null, fetch_interval_minutes })
+                });
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({detail: `HTTP error ${response.status}`}));
+                    throw new Error(errorData.detail || `Failed to add feed.`);
+                }
+                const newFeed = await response.json();
+                await loadAndRenderDbFeeds(); 
+                
+                rssFeedUrlInput.value = '';
+                rssFeedNameInput.value = '';
+                rssFeedIntervalInput.value = '';
+                alert(`Feed "${newFeed.name || newFeed.url}" added successfully!`);
+            } catch (error) {
+                console.error("Error adding feed:", error);
+                alert(`Error adding feed: ${error.message}`);
+            }
+        });
     }
 
-    // --- AI Prompt Configuration (Setup Tab) ---
+    async function deleteFeedSource(feedId) {
+        if (!confirm(`Are you sure you want to remove feed ID ${feedId} and all its articles/summaries? This cannot be undone.`)) {
+            return;
+        }
+        try {
+            const response = await fetch(`/api/feeds/${feedId}`, { method: 'DELETE' });
+            if (!response.ok) { 
+                 if (response.status !== 204) {
+                    const errorData = await response.json().catch(() => ({detail: `HTTP error ${response.status}`}));
+                    throw new Error(errorData.detail || `Failed to delete feed.`);
+                 }
+            }
+            alert("Feed deleted successfully!");
+            await loadAndRenderDbFeeds(); 
+            
+            if (activeFeedFilterIds.includes(feedId)) {
+                activeFeedFilterIds = []; 
+                fetchAndDisplaySummaries(false, 1);
+            }
+        } catch (error) {
+            console.error("Error deleting feed:", error);
+            alert(`Error deleting feed: ${error.message}`);
+        }
+    }
+    
+    if (globalRssSettingsForm) {
+        globalRssSettingsForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const newInterval = parseInt(rssFetchIntervalInput.value);
+            if (!isNaN(newInterval) && newInterval >= 5) {
+                globalRssFetchInterval = newInterval;
+                updateSetupUI();
+                alert(`Default RSS fetch interval preference updated to ${globalRssFetchInterval} minutes. Note: Backend scheduler might require restart or dynamic update for this to take full effect on its schedule.`);
+            } else {
+                alert("Please enter a valid interval (minimum 5 minutes).");
+            }
+        });
+    }
+
     if (aiPromptsForm) {
         aiPromptsForm.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -284,11 +450,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     }
-
-
-    // --- API Endpoint and Preferences Management (Setup Tab) ---
-    if (addRssFeedForm) addRssFeedForm.addEventListener('submit', (e) => { e.preventDefault(); addRssFeed(rssFeedUrlInput.value); rssFeedUrlInput.value = ''; });
-    if (clearRssFeedsBtn) clearRssFeedsBtn.addEventListener('click', clearAllRssFeeds);
     
     if(apiEndpointForm) {
         apiEndpointForm.addEventListener('submit', (e) => {
@@ -300,8 +461,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 SUMMARIES_API_ENDPOINT = newSummariesApiUrl; localStorage.setItem('newsSummariesApiEndpoint', SUMMARIES_API_ENDPOINT);
                 updated = true;
             }
-            if (newChatApiUrl) {
-                CHAT_API_ENDPOINT = newChatApiUrl; localStorage.setItem('newsChatApiEndpoint', CHAT_API_ENDPOINT);
+            if (newChatApiUrl) { // This should set CHAT_API_ENDPOINT_BASE or ensure it's derived correctly
+                localStorage.setItem('newsChatApiEndpoint', newChatApiUrl); // Store the full path
+                CHAT_API_ENDPOINT_BASE = newChatApiUrl.startsWith('/api/chat-with-article') ? '/api' : newChatApiUrl.substring(0, newChatApiUrl.lastIndexOf('/')); // Try to get base
+                if (!CHAT_API_ENDPOINT_BASE) CHAT_API_ENDPOINT_BASE = '/api'; // Fallback
                 updated = true;
             }
             if(updated) {
@@ -315,7 +478,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         contentPrefsForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const newArticlesPerPage = parseInt(numArticlesSetupInput.value);
-            if (newArticlesPerPage >= 1 && newArticlesPerPage <= 12) {
+            if (newArticlesPerPage >= 1 && newArticlesPerPage <= 20) { // Max 20 as per input
                 articlesPerPage = newArticlesPerPage; 
                 localStorage.setItem('articlesPerPage', articlesPerPage.toString());
                 updateSetupUI(); 
@@ -323,34 +486,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                 currentPage = 1; 
                 fetchAndDisplaySummaries(false, 1); 
             } else { 
-                alert('Please enter a number of articles per page between 1 and 12.'); 
+                alert('Please enter a number of articles per page between 1 and 20.'); 
             }
         });
     }
 
 
-    // --- Feed Filter Button Management ---
-    function renderFeedFilterButtons() {
+    // --- Feed Filter Button Management (Uses dbFeedSources) ---
+    function renderFeedFilterButtons() { 
         if (!feedFilterControls) return;
         feedFilterControls.innerHTML = ''; 
 
         const allFeedsButton = document.createElement('button');
         allFeedsButton.textContent = 'All Feeds';
         allFeedsButton.onclick = () => {
-            if (activeFeedFilter === null) return; 
-            activeFeedFilter = null;
+            if (activeFeedFilterIds.length === 0) return; 
+            activeFeedFilterIds = []; 
             updateFilterButtonStyles();
             fetchAndDisplaySummaries(false, 1); 
         };
         feedFilterControls.appendChild(allFeedsButton);
         
-        rssFeedUrls.forEach(feedUrl => {
+        dbFeedSources.forEach(feed => { 
             const feedButton = document.createElement('button');
-            feedButton.textContent = getFeedName(feedUrl); // Now calls the globally scoped getFeedName
-            feedButton.setAttribute('data-feedurl', feedUrl);
+            feedButton.textContent = getFeedNameById(feed.id); 
+            feedButton.setAttribute('data-feedid', feed.id); 
             feedButton.onclick = () => {
-                if (activeFeedFilter === feedUrl) return; 
-                activeFeedFilter = feedUrl;
+                if (activeFeedFilterIds.length === 1 && activeFeedFilterIds[0] === feed.id) return; 
+                
+                activeFeedFilterIds = [feed.id]; 
                 updateFilterButtonStyles();
                 fetchAndDisplaySummaries(false, 1); 
             };
@@ -359,14 +523,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateFilterButtonStyles();
     }
 
-    function updateFilterButtonStyles() {
+    function updateFilterButtonStyles() { 
         if (!feedFilterControls) return;
         const buttons = feedFilterControls.querySelectorAll('button');
         buttons.forEach(button => {
-            const feedUrlAttr = button.getAttribute('data-feedurl');
-            if (activeFeedFilter === null && button.textContent === 'All Feeds') {
+            const feedIdAttr = button.getAttribute('data-feedid');
+            if (activeFeedFilterIds.length === 0 && button.textContent === 'All Feeds') {
                 button.classList.add('active');
-            } else if (feedUrlAttr && feedUrlAttr === activeFeedFilter) {
+            } else if (feedIdAttr && activeFeedFilterIds.includes(parseInt(feedIdAttr))) {
                 button.classList.add('active');
             } else {
                 button.classList.remove('active');
@@ -374,35 +538,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // --- Fetching and Displaying News Summaries ---
-    async function fetchAndDisplaySummaries(forceRssRefresh = false, page = 1) {
-        if (!resultsContainer || !loadingIndicator || !loadingText) return;
+    // --- Fetching and Displaying News Summaries (Uses DB) ---
+    async function fetchAndDisplaySummaries(forceBackendRssRefresh = false, page = 1) { 
+        console.log(`fetchAndDisplaySummaries: Called. Page: ${page}, Active Filters: ${JSON.stringify(activeFeedFilterIds)}`); // Corrected typo
+        if (!resultsContainer || !loadingIndicator || !loadingText) {
+            console.error("fetchAndDisplaySummaries: Essential DOM elements missing.");
+            return;
+        }
         
         currentPage = page; 
-        const activeFeedName = activeFeedFilter ? getFeedName(activeFeedFilter) : 'All Feeds'; // Now calls the globally scoped getFeedName
-        loadingText.textContent = `Fetching page ${currentPage} for ${activeFeedName}...`;
+        let activeFeedNameDisplay = "All Feeds";
+        if (activeFeedFilterIds.length > 0) {
+            activeFeedNameDisplay = activeFeedFilterIds.map(id => getFeedNameById(id)).join(', ');
+        }
+        loadingText.textContent = `Fetching page ${currentPage} for ${activeFeedNameDisplay}...`; // Corrected typo
         loadingIndicator.style.display = 'flex'; 
         if(resultsContainer) resultsContainer.innerHTML = ''; 
         if(page === 1) { 
             updatePaginationUI(0,0,0,0);
         }
-
-        let feedsForPayload = [];
-        if (forceRssRefresh) {
-            feedsForPayload = []; 
-        } else if (activeFeedFilter) {
-            feedsForPayload = [activeFeedFilter];
-        } else {
-            feedsForPayload = rssFeedUrls;
-        }
         
         const payload = { 
             page: currentPage, 
             page_size: articlesPerPage, 
-            rss_feed_urls: feedsForPayload, 
-            force_refresh_rss: forceRssRefresh,
+            feed_source_ids: activeFeedFilterIds.length > 0 ? activeFeedFilterIds : null, 
             summary_prompt: (currentSummaryPrompt !== defaultSummaryPrompt) ? currentSummaryPrompt : null, 
         };
+        console.log("fetchAndDisplaySummaries: Sending payload:", JSON.stringify(payload));
         
         try {
             const response = await fetch(SUMMARIES_API_ENDPOINT, { 
@@ -410,41 +572,65 @@ document.addEventListener('DOMContentLoaded', async () => {
                 headers: { 'Content-Type': 'application/json' }, 
                 body: JSON.stringify(payload) 
             });
+            console.log("fetchAndDisplaySummaries: API response status:", response.status);
             if (!response.ok) { 
                 const errorData = await response.json().catch(() => ({ detail: `HTTP error! status: ${response.status}` })); 
+                console.error("fetchAndDisplaySummaries: API Error Data:", errorData);
                 throw new Error(errorData.detail || `HTTP error! status: ${response.status}`); 
             }
             const data = await response.json(); 
+            console.log("fetchAndDisplaySummaries: Received data:", data);
             displayResults(data.processed_articles_on_page); 
             totalArticlesAvailable = data.total_articles_available; 
             totalPages = data.total_pages;
             currentPage = data.requested_page; 
             updatePaginationUI(currentPage, totalPages, articlesPerPage, totalArticlesAvailable);
 
-            if (rssFeedUrls.length === 0 && data.processed_articles_on_page.length === 0) {
-                 if(resultsContainer) resultsContainer.innerHTML = '<p>No RSS feeds configured. Please add some in the Setup tab.</p>';
+            if (dbFeedSources.length === 0 && data.processed_articles_on_page.length === 0) {
+                 if(resultsContainer) resultsContainer.innerHTML = '<p>No RSS feeds configured in the database. Please add some in the Setup tab.</p>';
             } else if (data.processed_articles_on_page.length === 0 && totalArticlesAvailable === 0) {
-                 if(resultsContainer) resultsContainer.innerHTML = `<p>No articles found for the current filter (${activeFeedName}). Try a different filter or refresh.</p>`;
+                 if(resultsContainer) resultsContainer.innerHTML = `<p>No articles found for the current filter (${activeFeedNameDisplay}).</p>`;
             }
 
         } catch (error) { 
             console.error('Error fetching summaries:', error); 
-            if(resultsContainer) resultsContainer.innerHTML = `<p class="error-message">Error fetching summaries: ${error.message}. Please check API logs and network.</p>`; 
+            if(resultsContainer) resultsContainer.innerHTML = `<p class="error-message">Error fetching summaries: ${error.message}.</p>`; 
             updatePaginationUI(0,0,0,0); 
         }
-        finally { loadingIndicator.style.display = 'none'; }
+        finally { 
+            loadingIndicator.style.display = 'none'; 
+            console.log("fetchAndDisplaySummaries: Finished.");
+        }
     }
 
-    if (refreshNewsBtn) {
-        refreshNewsBtn.addEventListener('click', () => {
-            activeFeedFilter = null; 
-            if (feedFilterControls) renderFeedFilterButtons(); 
-            fetchAndDisplaySummaries(true, 1); 
+    if (refreshNewsBtn) { 
+        refreshNewsBtn.addEventListener('click', async () => {
+            if (!confirm("This will ask the backend to check all RSS feeds for new articles. Continue?")) return;
+            
+            loadingText.textContent = 'Requesting backend to refresh RSS feeds...';
+            loadingIndicator.style.display = 'flex';
+            try {
+                const response = await fetch('/api/trigger-rss-refresh', { method: 'POST' });
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({detail: `HTTP error ${response.status}`}));
+                    throw new Error(errorData.detail || "Failed to trigger RSS refresh.");
+                }
+                const result = await response.json();
+                alert(result.message || "RSS refresh initiated. New articles will appear after processing.");
+                setTimeout(() => {
+                    fetchAndDisplaySummaries(false, currentPage); 
+                }, 3000); 
+            } catch (error) {
+                console.error("Error triggering RSS refresh:", error);
+                alert(`Error: ${error.message}`);
+            } finally {
+                loadingIndicator.style.display = 'none';
+            }
         });
     }
     
     // --- UI Update Functions (Pagination, Results Display) ---
-    function updatePaginationUI(currentPg, totalPgs, pgSize, totalItems) {
+    function updatePaginationUI(currentPg, totalPgs, pgSize, totalItems) { 
         const renderControls = (container) => {
             if (!container) return; 
             container.innerHTML = ''; 
@@ -471,27 +657,36 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderControls(paginationControlsBottom);
     }
 
-    function displayResults(articles) {
+    function displayResults(articles) { 
+        console.log("displayResults: Called with articles:", articles);
         if (!articles || articles.length === 0) {
+            console.log("displayResults: No articles to display.");
+            return;
+        }
+        if (!resultsContainer) {
+            console.error("displayResults: resultsContainer is null!");
             return;
         }
         articles.forEach((article, index) => {
-            const uniqueArticleId = `article-${currentPage}-${index}`; 
+            const uniqueArticleCardId = `article-db-${article.id}`; 
 
             const articleCard = document.createElement('div'); articleCard.classList.add('article-card');
-            articleCard.setAttribute('id', uniqueArticleId);
+            articleCard.setAttribute('id', uniqueArticleCardId);
             
             const titleEl = document.createElement('h3'); titleEl.textContent = article.title || 'No Title Provided'; articleCard.appendChild(titleEl);
             const metaInfo = document.createElement('div'); metaInfo.classList.add('article-meta-info');
             if (article.publisher) { const p = document.createElement('span'); p.classList.add('article-publisher'); p.textContent = `Source: ${article.publisher}`; metaInfo.appendChild(p); }
-            if (article.published_date) { const d = document.createElement('span'); d.classList.add('article-published-date'); try { d.textContent = `Published: ${new Date(article.published_date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', hour:'numeric', minute:'numeric' })}`; } catch (e) { d.textContent = `Published: ${article.published_date}`; } metaInfo.appendChild(d); }
+            if (article.published_date) { const d = document.createElement('span'); d.classList.add('article-published-date'); try { d.textContent = `Published: ${new Date(article.published_date).toLocaleString(undefined, { year: 'numeric', month: 'long', day: 'numeric', hour:'numeric', minute:'numeric' })}`; } catch (e) { d.textContent = `Published: ${article.published_date}`; } metaInfo.appendChild(d); }
             if (metaInfo.hasChildNodes()) articleCard.appendChild(metaInfo);
 
             if (article.url) { const l = document.createElement('a'); l.href = article.url; l.textContent = 'Read Full Article'; l.classList.add('source-link'); l.target = '_blank'; l.rel = 'noopener noreferrer'; articleCard.appendChild(l); }
+            
+            console.log(`displayResults: Article ID ${article.id}, Summary: '${article.summary ? article.summary.substring(0,30)+"..." : "NULL/EMPTY"}'`);
             if (article.summary) { const s = document.createElement('p'); s.classList.add('summary'); s.textContent = article.summary; articleCard.appendChild(s); }
+            
             if (article.error_message) { const err = document.createElement('p'); err.classList.add('error-message'); err.textContent = `Note: ${article.error_message}`; articleCard.appendChild(err); }
             
-            if (article.url && !article.error_message && CHAT_API_ENDPOINT) { 
+            if (article.id && article.url && !article.error_message && CHAT_API_ENDPOINT_BASE) { 
                 const chatSectionDiv = document.createElement('div'); 
                 chatSectionDiv.classList.add('chat-section');
                 const chatTitleEl = document.createElement('h4'); 
@@ -503,33 +698,34 @@ document.addEventListener('DOMContentLoaded', async () => {
                 chatInputEl.setAttribute('type', 'text'); 
                 chatInputEl.setAttribute('placeholder', 'Your question...'); 
                 chatInputEl.classList.add('chat-question-input'); 
-                chatInputEl.setAttribute('id', `chat-input-${uniqueArticleId}`); 
+                chatInputEl.setAttribute('id', `chat-input-${uniqueArticleCardId}`); 
                 chatInputGroupDiv.appendChild(chatInputEl);
                 const chatButtonEl = document.createElement('button'); 
                 chatButtonEl.textContent = 'Ask'; 
                 chatButtonEl.classList.add('chat-ask-button'); 
-                chatButtonEl.onclick = () => handleArticleChat(article.url, uniqueArticleId); 
+                chatButtonEl.onclick = () => handleArticleChat(article.id, uniqueArticleCardId); 
                 chatInputEl.addEventListener('keypress', (event) => {
                     if (event.key === 'Enter') {
                         event.preventDefault(); 
-                        handleArticleChat(article.url, uniqueArticleId);
+                        handleArticleChat(article.id, uniqueArticleCardId);
                     }
                 });
                 chatInputGroupDiv.appendChild(chatButtonEl);
                 chatSectionDiv.appendChild(chatInputGroupDiv); 
                 const chatResponseAreaDiv = document.createElement('div'); 
                 chatResponseAreaDiv.classList.add('chat-response'); 
-                chatResponseAreaDiv.setAttribute('id', `chat-response-${uniqueArticleId}`);
-                renderChatHistory(chatResponseAreaDiv, article.url); 
+                chatResponseAreaDiv.setAttribute('id', `chat-response-${uniqueArticleCardId}`);
+                fetchChatHistory(article.id, chatResponseAreaDiv); 
                 chatSectionDiv.appendChild(chatResponseAreaDiv);
                 articleCard.appendChild(chatSectionDiv);
             }
             resultsContainer.appendChild(articleCard);
         });
+        console.log("displayResults: Finished appending article cards.");
     }
 
-    // --- Article Chat Handling ---
-    async function handleArticleChat(articleUrl, uniqueArticleCardId) {
+    // --- Article Chat Handling (Uses article_id from DB) ---
+    async function handleArticleChat(articleDbId, uniqueArticleCardId) { 
         const questionInput = document.getElementById(`chat-input-${uniqueArticleCardId}`);
         const responseDiv = document.getElementById(`chat-response-${uniqueArticleCardId}`);
         const askButton = questionInput.nextElementSibling; 
@@ -555,11 +751,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         try {
             const payload = { 
-                article_url: articleUrl, 
+                article_id: articleDbId, 
                 question: question,
                 chat_prompt: (currentChatPrompt !== defaultChatPrompt) ? currentChatPrompt : null 
             };
-            const response = await fetch(CHAT_API_ENDPOINT, { 
+            const response = await fetch(`${CHAT_API_ENDPOINT_BASE}/chat-with-article`, { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
                 body: JSON.stringify(payload) 
@@ -574,16 +770,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             const data = await response.json();
             const answer = data.answer || "No answer received.";
             
-            saveChatHistory(articleUrl, question, answer); 
-            
-            const aDiv = document.createElement('div');
-            aDiv.classList.add('chat-history-a');
-            aDiv.textContent = `AI: ${answer}`;
-            if (data.error_message || answer.startsWith("Error:")) { 
-                aDiv.classList.add('error-message');
-                aDiv.textContent = `AI: ${data.error_message || answer}`; 
+            if (data.new_chat_history_item) {
+                 const aDiv = document.createElement('div');
+                 aDiv.classList.add('chat-history-a');
+                 aDiv.textContent = `AI: ${answer}`;
+                 if (data.error_message || answer.startsWith("Error:")) { 
+                     aDiv.classList.add('error-message');
+                     aDiv.textContent = `AI: ${data.error_message || answer}`; 
+                 }
+                 responseDiv.appendChild(aDiv);
+            } else { 
+                await fetchChatHistory(articleDbId, responseDiv); // Re-fetch if new item not sent
             }
-            responseDiv.appendChild(aDiv);
 
         } catch (error) { 
             console.error('Error during article chat:', error); 
@@ -591,7 +789,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             errorDiv.classList.add('chat-history-a', 'error-message');
             errorDiv.textContent = `AI Error: ${error.message}`;
             responseDiv.appendChild(errorDiv);
-            saveChatHistory(articleUrl, question, `AI Error: ${error.message}`); 
         } finally { 
             questionInput.disabled = false; 
             if(askButton) askButton.disabled = false;
@@ -601,7 +798,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     // --- Navigation / Section Visibility ---
-    function showSection(sectionId) {
+    function showSection(sectionId) { 
         if (mainFeedSection) mainFeedSection.classList.remove('active'); 
         if (setupSection) setupSection.classList.remove('active');
         if (navMainBtn) navMainBtn.classList.remove('active'); 
