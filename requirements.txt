@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard] # For running FastAPI
+langchain
+langchain-community
+langchain-google-genai
+google-generativeai
+#gnews
+feedparser
+unstructured
+playwright
+newspaper3k
+pydantic
+python-dotenv # For managing environment variables locally (optional)

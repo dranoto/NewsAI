@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.env
+.env.*
+env/
+venv/
+ENV/
+VENV/
+*.egg-info/
+*.DS_Store
+
+# Docker (local build artifacts, usually not needed if just Dockerfile is shared)
+
+# Playwright auth states (if you don't want them in the repo)
+auth_states/
+app/auth_states/
+
+# Node modules (if frontend build step is ever added)
+node_modules/

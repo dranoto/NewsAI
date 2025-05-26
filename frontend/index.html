@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI News Today</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="page-container">
+        <header>
+            <div class="container">
+                <h1>AI News Today</h1>
+                <p class="tagline">Your Curated Digest from Configurable RSS Feeds</p>
+            </div>
+        </header>
+
+        <nav class="main-nav container">
+            <button id="nav-main-btn" class="nav-button active">Main Feed</button>
+            <button id="nav-setup-btn" class="nav-button">Setup</button>
+            <button id="refresh-news-btn" class="nav-button refresh-button">Refresh News Feed</button>
+        </nav>
+
+        <main class="container">
+            <section id="main-feed-section" class="content-section active">
+                <h2>Latest Summaries</h2>
+                <div id="loading-indicator" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <span id="loading-text">Fetching and summarizing news...</span>
+                </div>
+
+                <div id="pagination-controls-top" class="pagination-controls">
+                    </div>
+                <div id="results-container" class="results-grid">
+                    </div>
+                <div id="pagination-controls-bottom" class="pagination-controls">
+                    </div>
+            </section>
+
+            <section id="setup-section" class="content-section">
+                <h2>Setup & Preferences</h2>
+
+                <div class="setup-block">
+                    <h3>Content Preferences</h3>
+                    <form id="content-prefs-form">
+                        <div class="form-group">
+                            <label for="num_articles_setup">Articles per Page:</label>
+                            <input type="number" id="num_articles_setup" name="num_articles_setup" value="6" min="1" max="12" required>
+                        </div>
+                        <button type="submit" class="submit-button">Save Preferences</button>
+                    </form>
+                    <p>Current articles per page: <span id="current-num-articles-display">6</span></p>
+                </div>
+
+                <div class="setup-block">
+                    <h3>RSS Feed URLs</h3>
+                    <p>Add valid RSS feed URLs. The application will fetch articles from these feeds.</p>
+                    <form id="add-rss-feed-form">
+                        <div class="form-group">
+                            <label for="rss-feed-url-input">RSS Feed URL:</label>
+                            <input type="url" id="rss-feed-url-input" placeholder="e.g., https://www.example.com/feed.xml" required>
+                        </div>
+                        <button type="submit" class="submit-button">Add Feed</button>
+                    </form>
+                    <h4>Current RSS Feeds:</h4>
+                    <ul id="rss-feeds-list">
+                        </ul>
+                    <button id="clear-rss-feeds-btn" class="action-button">Clear All RSS Feeds</button>
+                </div>
+
+                <div class="setup-block">
+                    <h3>Prioritized Websites (for Scraper)</h3>
+                    <p>Site keys for potential special scraper handling (e.g., 'wapo', 'nyt'). Currently informational for the simplified scraper.</p>
+                    <form id="add-site-form">
+                        <div class="form-group">
+                            <label for="site-domain">Site Key:</label>
+                            <input type="text" id="site-domain" placeholder="e.g., wapo">
+                        </div>
+                        <button type="submit" class="submit-button">Add Site Key</button>
+                    </form>
+                    <h4>Current Site Keys:</h4>
+                    <ul id="prioritized-sites-list"></ul>
+                    <button id="clear-prioritized-sites" class="action-button">Clear All Site Keys</button>
+                </div>
+
+                 <div class="setup-block">
+                    <h3>API Endpoints</h3>
+                    <form id="api-endpoint-form">
+                        <div class="form-group">
+                            <label for="api-url">API URL for Summaries:</label>
+                            <input type="text" id="api-url" value="http://localhost:8000/api/get-news-summaries">
+                        </div>
+                         <div class="form-group">
+                            <label for="chat-api-url">API URL for Chat:</label>
+                            <input type="text" id="chat-api-url" value="http://localhost:8000/api/chat-with-article">
+                        </div>
+                        <button type="submit" class="submit-button">Set API URLs</button>
+                    </form>
+                    <p>Current Summaries API URL: <span id="current-api-url-display">http://localhost:8000/api/get-news-summaries</span></p>
+                    <p>Current Chat API URL: <span id="current-chat-api-url-display">http://localhost:8000/api/chat-with-article</span></p>
+                </div>
+            </section>
+        </main>
+        <footer>
+            <div class="container">
+                <p>&copy; 2025 AI News Today. All summaries generated by AI.</p>
+            </div>
+        </footer>
+    </div>
+    <script src="/static/script.js"></script>
+</body>
+</html>
