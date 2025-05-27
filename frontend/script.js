@@ -1,17 +1,20 @@
 // script.js
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log("SCRIPT.JS: DOMContentLoaded event fired. Script execution starting..."); 
+    console.log("SCRIPT.JS: DOMContentLoaded event fired. Script execution starting...");
 
     // --- DOM Element References ---
     const resultsContainer = document.getElementById('results-container');
     const loadingIndicator = document.getElementById('loading-indicator');
     const loadingText = document.getElementById('loading-text');
-    const refreshNewsBtn = document.getElementById('refresh-news-btn'); 
+    const refreshNewsBtn = document.getElementById('refresh-news-btn');
     const paginationControlsTop = document.getElementById('pagination-controls-top');
     const paginationControlsBottom = document.getElementById('pagination-controls-bottom');
     const feedFilterControls = document.getElementById('feed-filter-controls');
+    const activeTagFiltersDisplay = document.getElementById('active-tag-filters-display');
 
-    // Setup Section Elements
+    const keywordSearchInput = document.getElementById('keyword-search-input');
+    const keywordSearchBtn = document.getElementById('keyword-search-btn');
+
     const contentPrefsForm = document.getElementById('content-prefs-form');
     const numArticlesSetupInput = document.getElementById('num_articles_setup');
     const currentNumArticlesDisplay = document.getElementById('current-num-articles-display');
@@ -28,11 +31,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const aiPromptsForm = document.getElementById('ai-prompts-form');
     const summaryPromptInput = document.getElementById('summary-prompt-input');
+    const tagGenerationPromptInput = document.getElementById('tag-generation-prompt-input');
     const chatPromptInput = document.getElementById('chat-prompt-input');
     const resetPromptsBtn = document.getElementById('reset-prompts-btn');
     const currentSummaryPromptDisplay = document.getElementById('current-summary-prompt-display');
+    const currentTagGenerationPromptDisplay = document.getElementById('current-tag-generation-prompt-display');
     const currentChatPromptDisplay = document.getElementById('current-chat-prompt-display');
-    
+
     const apiEndpointForm = document.getElementById('api-endpoint-form');
     const apiUrlInput = document.getElementById('api-url');
     const chatApiUrlInput = document.getElementById('chat-api-url');
@@ -55,28 +60,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     const modalArticleIdInput = document.getElementById('modal-article-id-input');
     const modalUseDefaultPromptBtn = document.getElementById('modal-use-default-prompt-btn');
 
+    const articleChatModal = document.getElementById('article-chat-modal');
+    const closeArticleChatModalBtn = document.getElementById('close-article-chat-modal-btn');
+    const chatModalArticlePreviewContent = document.getElementById('chat-modal-article-preview-content');
+    const chatModalHistory = document.getElementById('chat-modal-history');
+    const chatModalQuestionInput = document.getElementById('chat-modal-question-input');
+    const chatModalAskButton = document.getElementById('chat-modal-ask-button');
+
+
     // --- State Variables ---
-    let dbFeedSources = []; 
-    let SUMMARIES_API_ENDPOINT = '/api/get-news-summaries'; 
-    let CHAT_API_ENDPOINT_BASE = '/api'; 
-    let articlesPerPage = 6; 
+    let dbFeedSources = [];
+    let SUMMARIES_API_ENDPOINT = '/api/get-news-summaries';
+    let CHAT_API_ENDPOINT_BASE = '/api';
+    let articlesPerPage = 6;
     let currentPage = 1;
     let totalPages = 1;
     let totalArticlesAvailable = 0;
-    let activeFeedFilterIds = []; 
+    let activeFeedFilterIds = [];
+    let activeTagFilterIds = [];
+    let currentArticleForChat = null;
 
     let currentSummaryPrompt = '';
     let currentChatPrompt = '';
-    let defaultSummaryPrompt = ''; 
-    let defaultChatPrompt = '';   
-    let globalRssFetchInterval = 60; 
+    let currentTagGenerationPrompt = '';
+    let defaultSummaryPrompt = '';
+    let defaultChatPrompt = '';
+    let defaultTagGenerationPrompt = '';
+    let globalRssFetchInterval = 60;
 
     // --- Utility Function: Get Feed Name (from dbFeedSources) ---
     const getFeedNameById = (feedId) => {
         const feed = dbFeedSources.find(f => f.id === feedId);
         return feed ? (feed.name || feed.url.split('/')[2].replace(/^www\./, '') || 'Unknown Feed') : 'Unknown Feed';
     };
-    const getFeedNameByUrl = (url) => { 
+    const getFeedNameByUrl = (url) => {
         if (!url) return 'Unknown Feed';
         try {
             const urlObj = new URL(url);
@@ -94,13 +111,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
-    // --- Chat History Management (Now Fetches from Backend) ---
-    async function fetchChatHistory(articleId, responseDiv) {
+    // --- Chat History Management (For Modal) ---
+    async function fetchChatHistoryForModal(articleId, responseDiv) {
         if (!responseDiv) {
-            console.error("fetchChatHistory: responseDiv is null for articleId", articleId);
+            console.error("fetchChatHistoryForModal: responseDiv is null for articleId", articleId);
             return;
         }
-        responseDiv.innerHTML = '<p class="chat-loading">Loading chat history...</p>'; 
+        responseDiv.innerHTML = '<p class="chat-loading">Loading chat history...</p>';
         try {
             const chatHistoryUrl = `${CHAT_API_ENDPOINT_BASE}/article/${articleId}/chat-history`;
             const response = await fetch(chatHistoryUrl);
@@ -110,32 +127,32 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
             const history = await response.json();
-            renderChatHistory(responseDiv, history, articleId); 
+            renderChatHistoryInModal(responseDiv, history);
         } catch (error) {
-            console.error('Error fetching chat history:', error);
+            console.error('Error fetching chat history for modal:', error);
             responseDiv.innerHTML = '<p class="error-message">Error loading chat history.</p>';
         }
     }
 
-    function renderChatHistory(responseDiv, historyArray, articleId) { 
-        if (!responseDiv) {
+    function renderChatHistoryInModal(responseDiv, historyArray) {
+        if (!responseDiv) return;
+        responseDiv.innerHTML = '';
+        if (!historyArray || historyArray.length === 0) {
+            // responseDiv.innerHTML = '<p>No chat history for this article yet. Ask a question!</p>'; // Keep empty
             return;
         }
-        responseDiv.innerHTML = ''; 
-        if (!historyArray || historyArray.length === 0) {
-            return; 
-        } 
-        
         historyArray.forEach(chat => {
             const qDiv = document.createElement('div');
             qDiv.classList.add('chat-history-q');
-            qDiv.textContent = `You: ${chat.question}`;
+            // Use marked.parse() for question - though user input is typically not markdown
+            qDiv.innerHTML = `<strong>You:</strong> ${marked.parse(chat.question || "")}`;
             responseDiv.appendChild(qDiv);
 
             const aDiv = document.createElement('div');
             aDiv.classList.add('chat-history-a');
-            aDiv.textContent = `AI: ${chat.answer || "Processing..."}`; 
-            if (chat.answer && (chat.answer.startsWith("AI Error:") || chat.answer.startsWith("Error:"))) { 
+            // Use marked.parse() for AI answer
+            aDiv.innerHTML = `<strong>AI:</strong> ${marked.parse(chat.answer || "Processing...")}`;
+            if (chat.answer && (chat.answer.startsWith("AI Error:") || chat.answer.startsWith("Error:"))) {
                 aDiv.classList.add('error-message');
             }
             responseDiv.appendChild(aDiv);
@@ -145,18 +162,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+
     // --- Initial Configuration Fetch ---
     async function fetchInitialConfig() {
         console.log("SCRIPT.JS: fetchInitialConfig: Starting...");
         try {
-            const response = await fetch('/api/initial-config'); 
+            const response = await fetch('/api/initial-config');
             if (!response.ok) {
                 console.warn('SCRIPT.JS: fetchInitialConfig: Failed to fetch initial config from backend.');
-                defaultSummaryPrompt = "Please summarize: {text}"; 
+                defaultSummaryPrompt = "Please summarize: {text}";
                 defaultChatPrompt = "Article: {article_text}\nQuestion: {question}\nAnswer:";
+                defaultTagGenerationPrompt = "Generate 3-5 comma-separated tags for: {text}";
                 globalRssFetchInterval = 60;
-                dbFeedSources = []; 
-                return; 
+                dbFeedSources = [];
+                return;
             }
             const configData = await response.json();
             console.log("SCRIPT.JS: fetchInitialConfig: Received configData:", configData);
@@ -165,17 +184,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                 articlesPerPage = configData.default_articles_per_page;
                 localStorage.setItem('articlesPerPage', articlesPerPage.toString());
             }
-            
+
             defaultSummaryPrompt = configData.default_summary_prompt || "Summarize: {text}";
             defaultChatPrompt = configData.default_chat_prompt || "Context: {article_text}\nQuestion: {question}\nAnswer:";
+            defaultTagGenerationPrompt = configData.default_tag_generation_prompt || "Generate 3-5 comma-separated tags for: {text}";
             globalRssFetchInterval = configData.default_rss_fetch_interval_minutes || 60;
             dbFeedSources = configData.all_db_feed_sources || [];
             console.log("SCRIPT.JS: fetchInitialConfig: dbFeedSources set to:", dbFeedSources);
 
         } catch (error) {
             console.error('SCRIPT.JS: Error fetching initial config:', error);
-            defaultSummaryPrompt = "Please summarize the key points of this article: {text}"; 
+            defaultSummaryPrompt = "Please summarize the key points of this article: {text}";
             defaultChatPrompt = "Based on this article: {article_text}\nWhat is the answer to: {question}?";
+            defaultTagGenerationPrompt = "Keywords for {text}:";
             globalRssFetchInterval = 60;
             dbFeedSources = [];
         }
@@ -185,7 +206,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- App Initialization ---
     async function initializeAppSettings() {
         console.log("SCRIPT.JS: initializeAppSettings: Starting...");
-        await fetchInitialConfig(); 
+        await fetchInitialConfig();
 
         SUMMARIES_API_ENDPOINT = localStorage.getItem('newsSummariesApiEndpoint') || '/api/get-news-summaries';
         const chatApiUrlFromStorage = localStorage.getItem('newsChatApiEndpoint');
@@ -195,69 +216,72 @@ document.addEventListener('DOMContentLoaded', async () => {
             CHAT_API_ENDPOINT_BASE = '/api';
         }
 
-        articlesPerPage = parseInt(localStorage.getItem('articlesPerPage')) || articlesPerPage; 
+        articlesPerPage = parseInt(localStorage.getItem('articlesPerPage')) || articlesPerPage;
 
         currentSummaryPrompt = localStorage.getItem('customSummaryPrompt') || defaultSummaryPrompt;
         currentChatPrompt = localStorage.getItem('customChatPrompt') || defaultChatPrompt;
+        currentTagGenerationPrompt = localStorage.getItem('customTagGenerationPrompt') || defaultTagGenerationPrompt;
 
-        updateSetupUI(); 
-        renderRssFeedsListUI(); 
-        renderFeedFilterButtons(); 
-        showSection('main-feed-section'); 
+        updateSetupUI();
+        await loadAndRenderDbFeeds(); 
+        updateActiveTagFiltersUI();
+        showSection('main-feed-section');
 
         console.log("SCRIPT.JS: initializeAppSettings: Checking dbFeedSources.length:", dbFeedSources.length);
-        if (dbFeedSources.length > 0) {
-            activeFeedFilterIds = []; 
+        if (dbFeedSources.length > 0 || activeTagFilterIds.length > 0 || (keywordSearchInput && keywordSearchInput.value.trim())) {
             console.log("SCRIPT.JS: initializeAppSettings: Calling fetchAndDisplaySummaries for the first time.");
-            fetchAndDisplaySummaries(false, 1); 
+            fetchAndDisplaySummaries(false, 1, keywordSearchInput ? keywordSearchInput.value.trim() : null);
         } else {
-            console.log("SCRIPT.JS: initializeAppSettings: No DB feed sources found, not calling fetchAndDisplaySummaries initially.");
-            if(resultsContainer) resultsContainer.innerHTML = '<p>No RSS feeds configured in the database. Please add some in the Setup tab.</p>';
-            updatePaginationUI(0,0,0,0);
-            if (feedFilterControls) renderFeedFilterButtons(); 
+            console.log("SCRIPT.JS: initializeAppSettings: No DB feed sources or active tag filters, not calling fetchAndDisplaySummaries initially.");
+            if (resultsContainer) resultsContainer.innerHTML = '<p>No RSS feeds configured. Please add some in Setup, or try searching.</p>';
+            updatePaginationUI(0, 0, 0, 0);
+             if (feedFilterControls) renderFeedFilterButtons();
         }
         console.log("SCRIPT.JS: initializeAppSettings: Finished.");
     }
-    
+
     function updateSetupUI() {
-        if(currentApiUrlDisplay) currentApiUrlDisplay.textContent = SUMMARIES_API_ENDPOINT;
-        if(apiUrlInput) apiUrlInput.value = SUMMARIES_API_ENDPOINT;
-        if(currentChatApiUrlDisplay) currentChatApiUrlDisplay.textContent = `${CHAT_API_ENDPOINT_BASE}/chat-with-article`; 
-        if(chatApiUrlInput) chatApiUrlInput.value = `${CHAT_API_ENDPOINT_BASE}/chat-with-article`;
+        if (currentApiUrlDisplay) currentApiUrlDisplay.textContent = SUMMARIES_API_ENDPOINT;
+        if (apiUrlInput) apiUrlInput.value = SUMMARIES_API_ENDPOINT;
+        if (currentChatApiUrlDisplay) currentChatApiUrlDisplay.textContent = `${CHAT_API_ENDPOINT_BASE}/chat-with-article`;
+        if (chatApiUrlInput) chatApiUrlInput.value = `${CHAT_API_ENDPOINT_BASE}/chat-with-article`;
 
-        if(numArticlesSetupInput) numArticlesSetupInput.value = articlesPerPage;
-        if(currentNumArticlesDisplay) currentNumArticlesDisplay.textContent = articlesPerPage;
+        if (numArticlesSetupInput) numArticlesSetupInput.value = articlesPerPage;
+        if (currentNumArticlesDisplay) currentNumArticlesDisplay.textContent = articlesPerPage;
 
-        if(summaryPromptInput) summaryPromptInput.value = currentSummaryPrompt;
-        if(chatPromptInput) chatPromptInput.value = currentChatPrompt;
-        if(currentSummaryPromptDisplay) currentSummaryPromptDisplay.textContent = currentSummaryPrompt;
-        if(currentChatPromptDisplay) currentChatPromptDisplay.textContent = currentChatPrompt;
+        if (summaryPromptInput) summaryPromptInput.value = currentSummaryPrompt;
+        if (chatPromptInput) chatPromptInput.value = currentChatPrompt;
+        if (tagGenerationPromptInput) tagGenerationPromptInput.value = currentTagGenerationPrompt;
 
-        if(rssFetchIntervalInput) rssFetchIntervalInput.value = globalRssFetchInterval;
-        if(currentRssFetchIntervalDisplay) currentRssFetchIntervalDisplay.textContent = globalRssFetchInterval;
+        // Display raw prompts in textareas, not rendered HTML
+        if (currentSummaryPromptDisplay) currentSummaryPromptDisplay.textContent = currentSummaryPrompt;
+        if (currentChatPromptDisplay) currentChatPromptDisplay.textContent = currentChatPrompt;
+        if (currentTagGenerationPromptDisplay) currentTagGenerationPromptDisplay.textContent = currentTagGenerationPrompt;
+
+
+        if (rssFetchIntervalInput) rssFetchIntervalInput.value = globalRssFetchInterval;
+        if (currentRssFetchIntervalDisplay) currentRssFetchIntervalDisplay.textContent = globalRssFetchInterval;
     }
 
     // --- RSS Feed Management (Setup Tab - interacts with DB via API) ---
-    async function loadAndRenderDbFeeds() { 
+    async function loadAndRenderDbFeeds() {
         try {
             const response = await fetch('/api/feeds');
             if (!response.ok) {
                 console.error("Failed to fetch feed sources from DB:", response.status);
-                alert("Error: Could not load feed sources from database.");
                 dbFeedSources = [];
             } else {
                 dbFeedSources = await response.json();
             }
         } catch (error) {
             console.error("Error fetching DB feed sources:", error);
-            alert("Error: Could not connect to API to load feed sources.");
             dbFeedSources = [];
         }
         renderRssFeedsListUI();
         renderFeedFilterButtons();
     }
 
-    function renderRssFeedsListUI() { 
+    function renderRssFeedsListUI() {
         if (!rssFeedsListUI) return;
         rssFeedsListUI.innerHTML = '';
         if (dbFeedSources.length === 0) {
@@ -267,32 +291,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         dbFeedSources.forEach((feed) => {
             const li = document.createElement('li');
             let displayName = feed.name || getFeedNameByUrl(feed.url);
-            
+
             const detailsSpan = document.createElement('span');
             detailsSpan.classList.add('feed-details');
             detailsSpan.textContent = `${displayName} (URL: ${feed.url}, Interval: ${feed.fetch_interval_minutes}m)`;
             li.appendChild(detailsSpan);
-            
+
             const controlsDiv = document.createElement('div');
             controlsDiv.classList.add('feed-controls');
 
             const editBtn = document.createElement('button');
             editBtn.textContent = 'Edit';
-            editBtn.classList.add('edit-feed-btn'); 
+            editBtn.classList.add('edit-feed-btn');
             editBtn.onclick = () => promptEditFeed(feed);
             controlsDiv.appendChild(editBtn);
 
             const removeBtn = document.createElement('button');
             removeBtn.textContent = 'Remove';
-            removeBtn.classList.add('remove-site-btn'); 
+            removeBtn.classList.add('remove-site-btn');
             removeBtn.onclick = () => deleteFeedSource(feed.id);
             controlsDiv.appendChild(removeBtn);
-            
+
             li.appendChild(controlsDiv);
             rssFeedsListUI.appendChild(li);
         });
     }
-    
     async function promptEditFeed(feed) {
         const newName = prompt("Enter new name for the feed (or leave blank to keep current):", feed.name || "");
         const newIntervalStr = prompt(`Enter new fetch interval in minutes for "${feed.name || feed.url}" (leave blank to keep ${feed.fetch_interval_minutes}m):`, feed.fetch_interval_minutes);
@@ -300,17 +323,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         const updatePayload = {};
         let changed = false;
 
-        if (newName !== null && newName.trim() !== (feed.name || "")) { 
-            updatePayload.name = newName.trim() === "" ? null : newName.trim(); 
+        if (newName !== null && newName.trim() !== (feed.name || "")) {
+            updatePayload.name = newName.trim() === "" ? null : newName.trim();
             changed = true;
-        } else if (newName !== null && newName.trim() === "" && feed.name !== null) { 
+        } else if (newName !== null && newName.trim() === "" && feed.name !== null) {
             updatePayload.name = null;
             changed = true;
         }
 
         if (newIntervalStr !== null && newIntervalStr.trim() !== "") {
             const newInterval = parseInt(newIntervalStr);
-            if (!isNaN(newInterval) && newInterval >= 5 && newInterval !== feed.fetch_interval_minutes) { // Min interval 5
+            if (!isNaN(newInterval) && newInterval >= 5 && newInterval !== feed.fetch_interval_minutes) {
                 updatePayload.fetch_interval_minutes = newInterval;
                 changed = true;
             } else if (newIntervalStr.trim() !== "" && (isNaN(newInterval) || newInterval < 5)) {
@@ -331,7 +354,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     throw new Error(errorData.detail || `Failed to update feed.`);
                 }
                 alert("Feed updated successfully!");
-                await loadAndRenderDbFeeds(); 
+                await loadAndRenderDbFeeds();
             } catch (error) {
                 console.error("Error updating feed:", error);
                 alert(`Error updating feed: ${error.message}`);
@@ -347,12 +370,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             const url = rssFeedUrlInput.value.trim();
             const name = rssFeedNameInput.value.trim();
             const intervalStr = rssFeedIntervalInput.value.trim();
-            let fetch_interval_minutes = globalRssFetchInterval; 
+            let fetch_interval_minutes = globalRssFetchInterval;
 
             if (!url) { alert("Feed URL is required."); return; }
             if (intervalStr) {
                 const parsedInterval = parseInt(intervalStr);
-                if (isNaN(parsedInterval) || parsedInterval < 5) { // Min interval 5
+                if (isNaN(parsedInterval) || parsedInterval < 5) {
                     alert("Invalid fetch interval. Please enter a positive number (minimum 5 minutes) or leave blank for default.");
                     return;
                 }
@@ -370,8 +393,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     throw new Error(errorData.detail || `Failed to add feed.`);
                 }
                 const newFeed = await response.json();
-                await loadAndRenderDbFeeds(); 
-                
+                await loadAndRenderDbFeeds();
+
                 rssFeedUrlInput.value = '';
                 rssFeedNameInput.value = '';
                 rssFeedIntervalInput.value = '';
@@ -389,25 +412,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         try {
             const response = await fetch(`/api/feeds/${feedId}`, { method: 'DELETE' });
-            if (!response.ok) { 
-                 if (response.status !== 204) {
+            if (!response.ok) {
+                if (response.status !== 204) {
                     const errorData = await response.json().catch(() => ({detail: `HTTP error ${response.status}`}));
                     throw new Error(errorData.detail || `Failed to delete feed.`);
                  }
             }
             alert("Feed deleted successfully!");
-            await loadAndRenderDbFeeds(); 
-            
+            await loadAndRenderDbFeeds();
+
             if (activeFeedFilterIds.includes(feedId)) {
-                activeFeedFilterIds = []; 
-                fetchAndDisplaySummaries(false, 1);
+                activeFeedFilterIds = activeFeedFilterIds.filter(id => id !== feedId);
+                fetchAndDisplaySummaries(false, 1, keywordSearchInput.value.trim() || null);
             }
         } catch (error) {
             console.error("Error deleting feed:", error);
             alert(`Error deleting feed: ${error.message}`);
         }
     }
-    
+
     if (globalRssSettingsForm) {
         globalRssSettingsForm.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -422,18 +445,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+
     if (aiPromptsForm) {
         aiPromptsForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const newSummaryPrompt = summaryPromptInput.value.trim();
             const newChatPrompt = chatPromptInput.value.trim();
+            const newTagGenerationPrompt = tagGenerationPromptInput.value.trim();
 
             if (newSummaryPrompt && !newSummaryPrompt.includes("{text}")) {
-                alert("Summary prompt must contain the placeholder {text}. Using default if saved empty.");
+                alert("Summary prompt must contain the placeholder {text}."); return;
+            }
+            if (newTagGenerationPrompt && !newTagGenerationPrompt.includes("{text}")) {
+                alert("Tag Generation prompt must contain the placeholder {text}."); return;
             }
             if (newChatPrompt && (!newChatPrompt.includes("{article_text}") || !newChatPrompt.includes("{question}"))) {
-                 if (!newChatPrompt.includes("{question}")) { 
-                    alert("Chat prompt should ideally include {article_text} and {question}, or at least {question}. Using default if saved empty.");
+                 if (!newChatPrompt.includes("{question}")) {
+                    alert("Chat prompt should ideally include {article_text} and {question}, or at least {question}."); return;
                  } else {
                     console.warn("Chat prompt might be missing {article_text}. This is allowed but might not use article context effectively.");
                  }
@@ -441,11 +469,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             currentSummaryPrompt = newSummaryPrompt || defaultSummaryPrompt;
             currentChatPrompt = newChatPrompt || defaultChatPrompt;
+            currentTagGenerationPrompt = newTagGenerationPrompt || defaultTagGenerationPrompt;
 
             localStorage.setItem('customSummaryPrompt', currentSummaryPrompt);
             localStorage.setItem('customChatPrompt', currentChatPrompt);
-            
-            updateSetupUI(); 
+            localStorage.setItem('customTagGenerationPrompt', currentTagGenerationPrompt);
+
+            updateSetupUI();
             alert('AI Prompts saved!');
         });
     }
@@ -455,15 +485,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (confirm("Are you sure you want to reset prompts to their default values?")) {
                 currentSummaryPrompt = defaultSummaryPrompt;
                 currentChatPrompt = defaultChatPrompt;
-                localStorage.setItem('customSummaryPrompt', currentSummaryPrompt); 
-                localStorage.setItem('customChatPrompt', currentChatPrompt);   
+                currentTagGenerationPrompt = defaultTagGenerationPrompt;
+
+                // Remove custom prompts from localStorage to ensure defaults are used
+                localStorage.removeItem('customSummaryPrompt');
+                localStorage.removeItem('customChatPrompt');
+                localStorage.removeItem('customTagGenerationPrompt');
+                
                 updateSetupUI();
                 alert('Prompts have been reset to defaults.');
             }
         });
     }
-    
-    if(apiEndpointForm) {
+
+    if (apiEndpointForm) {
         apiEndpointForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const newSummariesApiUrl = apiUrlInput.value.trim();
@@ -473,14 +508,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 SUMMARIES_API_ENDPOINT = newSummariesApiUrl; localStorage.setItem('newsSummariesApiEndpoint', SUMMARIES_API_ENDPOINT);
                 updated = true;
             }
-            if (newChatApiUrl) { 
-                localStorage.setItem('newsChatApiEndpoint', newChatApiUrl); 
-                CHAT_API_ENDPOINT_BASE = newChatApiUrl.startsWith('/api/chat-with-article') ? '/api' : newChatApiUrl.substring(0, newChatApiUrl.lastIndexOf('/')); 
-                if (!CHAT_API_ENDPOINT_BASE) CHAT_API_ENDPOINT_BASE = '/api'; 
+            if (newChatApiUrl) {
+                localStorage.setItem('newsChatApiEndpoint', newChatApiUrl);
+                CHAT_API_ENDPOINT_BASE = newChatApiUrl.startsWith('/api/chat-with-article') ? '/api' : newChatApiUrl.substring(0, newChatApiUrl.lastIndexOf('/'));
+                if (!CHAT_API_ENDPOINT_BASE) CHAT_API_ENDPOINT_BASE = '/api';
                 updated = true;
             }
-            if(updated) {
-                updateSetupUI(); 
+            if (updated) {
+                updateSetupUI();
                 alert('API Endpoints updated!');
             }
         });
@@ -490,52 +525,58 @@ document.addEventListener('DOMContentLoaded', async () => {
         contentPrefsForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const newArticlesPerPage = parseInt(numArticlesSetupInput.value);
-            if (newArticlesPerPage >= 1 && newArticlesPerPage <= 20) { 
-                articlesPerPage = newArticlesPerPage; 
+            if (newArticlesPerPage >= 1 && newArticlesPerPage <= 20) {
+                articlesPerPage = newArticlesPerPage;
                 localStorage.setItem('articlesPerPage', articlesPerPage.toString());
-                updateSetupUI(); 
+                updateSetupUI();
                 alert('Content preferences saved! Articles per page set to ' + articlesPerPage);
-                currentPage = 1; 
-                fetchAndDisplaySummaries(false, 1); 
-            } else { 
-                alert('Please enter a number of articles per page between 1 and 20.'); 
+                currentPage = 1;
+                fetchAndDisplaySummaries(false, 1, keywordSearchInput.value.trim() || null);
+            } else {
+                alert('Please enter a number of articles per page between 1 and 20.');
             }
         });
     }
 
 
     // --- Feed Filter Button Management (Uses dbFeedSources) ---
-    function renderFeedFilterButtons() { 
+    function renderFeedFilterButtons() {
         if (!feedFilterControls) return;
-        feedFilterControls.innerHTML = ''; 
+        feedFilterControls.innerHTML = '';
 
         const allFeedsButton = document.createElement('button');
         allFeedsButton.textContent = 'All Feeds';
         allFeedsButton.onclick = () => {
-            if (activeFeedFilterIds.length === 0) return; 
-            activeFeedFilterIds = []; 
+            if (activeFeedFilterIds.length === 0 && activeTagFilterIds.length === 0 && !keywordSearchInput.value.trim()) return;
+            activeFeedFilterIds = [];
+            // activeTagFilterIds = []; // Decide if "All Feeds" should clear tag/keyword filters
+            // keywordSearchInput.value = ''; // Optionally clear keyword search
             updateFilterButtonStyles();
-            fetchAndDisplaySummaries(false, 1); 
+            updateActiveTagFiltersUI();
+            fetchAndDisplaySummaries(false, 1, keywordSearchInput.value.trim() || null);
         };
         feedFilterControls.appendChild(allFeedsButton);
-        
-        dbFeedSources.forEach(feed => { 
+
+        dbFeedSources.forEach(feed => {
             const feedButton = document.createElement('button');
-            feedButton.textContent = getFeedNameById(feed.id); 
-            feedButton.setAttribute('data-feedid', feed.id); 
+            feedButton.textContent = getFeedNameById(feed.id);
+            feedButton.setAttribute('data-feedid', feed.id);
             feedButton.onclick = () => {
-                if (activeFeedFilterIds.length === 1 && activeFeedFilterIds[0] === feed.id) return; 
-                
-                activeFeedFilterIds = [feed.id]; 
+                if (activeFeedFilterIds.includes(feed.id)) {
+                     activeFeedFilterIds = [];
+                } else {
+                    activeFeedFilterIds = [feed.id];
+                }
                 updateFilterButtonStyles();
-                fetchAndDisplaySummaries(false, 1); 
+                updateActiveTagFiltersUI(); // Keep tag filters active if desired
+                fetchAndDisplaySummaries(false, 1, keywordSearchInput.value.trim() || null);
             };
             feedFilterControls.appendChild(feedButton);
         });
         updateFilterButtonStyles();
     }
 
-    function updateFilterButtonStyles() { 
+    function updateFilterButtonStyles() {
         if (!feedFilterControls) return;
         const buttons = feedFilterControls.querySelectorAll('button');
         buttons.forEach(button => {
@@ -550,88 +591,136 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // --- Active Tag Filters UI Management ---
+    function updateActiveTagFiltersUI() {
+        if (!activeTagFiltersDisplay) return;
+        activeTagFiltersDisplay.innerHTML = '';
+        if (activeTagFilterIds.length === 0) {
+            activeTagFiltersDisplay.style.display = 'none';
+            return;
+        }
+
+        activeTagFiltersDisplay.style.display = 'block';
+        const heading = document.createElement('span');
+        heading.textContent = 'Filtered by tags: ';
+        heading.style.fontWeight = 'bold';
+        activeTagFiltersDisplay.appendChild(heading);
+
+        activeTagFilterIds.forEach(tagObj => { // Now expects objects {id, name}
+            const tagSpan = document.createElement('span');
+            tagSpan.classList.add('active-tag-filter');
+            tagSpan.textContent = tagObj.name;
+
+            const removeBtn = document.createElement('span');
+            removeBtn.classList.add('remove-tag-filter-btn');
+            removeBtn.textContent = '×';
+            removeBtn.title = `Remove filter: ${tagObj.name}`;
+            removeBtn.onclick = () => {
+                activeTagFilterIds = activeTagFilterIds.filter(t => t.id !== tagObj.id);
+                updateActiveTagFiltersUI();
+                document.querySelectorAll(`.article-tag[data-tag-id='${tagObj.id}']`).forEach(el => el.classList.remove('active-filter-tag'));
+                fetchAndDisplaySummaries(false, 1, keywordSearchInput.value.trim() || null);
+            };
+            tagSpan.appendChild(removeBtn);
+            activeTagFiltersDisplay.appendChild(tagSpan);
+        });
+    }
+
+
     // --- Fetching and Displaying News Summaries (Uses DB) ---
-    async function fetchAndDisplaySummaries(forceBackendRssRefresh = false, page = 1) { 
-        console.log(`SCRIPT.JS: fetchAndDisplaySummaries: Called. Page: ${page}, Active Filters: ${JSON.stringify(activeFeedFilterIds)}`);
+    async function fetchAndDisplaySummaries(forceBackendRssRefresh = false, page = 1, keyword = null) {
+        console.log(`SCRIPT.JS: fetchAndDisplaySummaries: Page: ${page}, Feed Filters: ${JSON.stringify(activeFeedFilterIds)}, Tag Filters: ${JSON.stringify(activeTagFilterIds.map(t=>t.id))}, Keyword: ${keyword}`);
         if (!resultsContainer || !loadingIndicator || !loadingText) {
             console.error("SCRIPT.JS: fetchAndDisplaySummaries: Essential DOM elements missing.");
             return;
         }
-        
-        currentPage = page; 
-        let activeFeedNameDisplay = "All Feeds";
+
+        currentPage = page;
+        let activeFilterDisplayParts = [];
         if (activeFeedFilterIds.length > 0) {
-            activeFeedNameDisplay = activeFeedFilterIds.map(id => getFeedNameById(id)).join(', ');
+            activeFilterDisplayParts.push(`Feeds: ${activeFeedFilterIds.map(id => getFeedNameById(id)).join(', ')}`);
         }
-        loadingText.textContent = `Fetching page ${currentPage} for ${activeFeedNameDisplay}...`;
-        loadingIndicator.style.display = 'flex'; 
-        if(resultsContainer) resultsContainer.innerHTML = ''; 
-        if(page === 1) { 
-            updatePaginationUI(0,0,0,0);
+        if (activeTagFilterIds.length > 0) {
+             activeFilterDisplayParts.push(`Tags: ${activeTagFilterIds.map(t=>t.name).join(', ')}`);
         }
-        
-        const payload = { 
-            page: currentPage, 
-            page_size: articlesPerPage, 
-            feed_source_ids: activeFeedFilterIds.length > 0 ? activeFeedFilterIds : null, 
-            summary_prompt: (currentSummaryPrompt !== defaultSummaryPrompt) ? currentSummaryPrompt : null, 
+        if (keyword) {
+            activeFilterDisplayParts.push(`Keyword: "${keyword}"`);
+        }
+        const activeFilterDisplay = activeFilterDisplayParts.length > 0 ? activeFilterDisplayParts.join(' & ') : "All Articles";
+
+
+        loadingText.textContent = `Fetching page ${currentPage} for ${activeFilterDisplay}...`;
+        loadingIndicator.style.display = 'flex';
+        if (resultsContainer) resultsContainer.innerHTML = '';
+        if (page === 1) {
+            updatePaginationUI(0, 0, 0, 0);
+        }
+
+        const payload = {
+            page: currentPage,
+            page_size: articlesPerPage,
+            feed_source_ids: activeFeedFilterIds.length > 0 ? activeFeedFilterIds : null,
+            tag_ids: activeTagFilterIds.length > 0 ? activeTagFilterIds.map(t => t.id) : null,
+            keyword: keyword || null,
+            summary_prompt: (currentSummaryPrompt !== defaultSummaryPrompt) ? currentSummaryPrompt : null,
+            tag_generation_prompt: (currentTagGenerationPrompt !== defaultTagGenerationPrompt) ? currentTagGenerationPrompt : null,
         };
         console.log("SCRIPT.JS: fetchAndDisplaySummaries: Sending payload:", JSON.stringify(payload));
-        
+
         try {
-            const response = await fetch(SUMMARIES_API_ENDPOINT, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify(payload) 
+            const response = await fetch(SUMMARIES_API_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
             });
             console.log("SCRIPT.JS: fetchAndDisplaySummaries: API response status:", response.status);
-            if (!response.ok) { 
-                const errorData = await response.json().catch(() => ({ detail: `HTTP error! status: ${response.status}` })); 
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ detail: `HTTP error! status: ${response.status}` }));
                 console.error("SCRIPT.JS: fetchAndDisplaySummaries: API Error Data:", errorData);
-                throw new Error(errorData.detail || `HTTP error! status: ${response.status}`); 
+                throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
             }
-            const data = await response.json(); 
+            const data = await response.json();
             console.log("SCRIPT.JS: fetchAndDisplaySummaries: Received data:", data);
-            displayResults(data.processed_articles_on_page); 
-            totalArticlesAvailable = data.total_articles_available; 
+            displayResults(data.processed_articles_on_page);
+            totalArticlesAvailable = data.total_articles_available;
             totalPages = data.total_pages;
-            currentPage = data.requested_page; 
+            currentPage = data.requested_page;
             updatePaginationUI(currentPage, totalPages, articlesPerPage, totalArticlesAvailable);
 
-            if (dbFeedSources.length === 0 && data.processed_articles_on_page.length === 0) {
-                 if(resultsContainer) resultsContainer.innerHTML = '<p>No RSS feeds configured in the database. Please add some in the Setup tab.</p>';
+            if (dbFeedSources.length === 0 && data.processed_articles_on_page.length === 0 && activeTagFilterIds.length === 0 && !keyword) {
+                if (resultsContainer) resultsContainer.innerHTML = '<p>No RSS feeds configured. Please add some in the Setup tab or try searching.</p>';
             } else if (data.processed_articles_on_page.length === 0 && totalArticlesAvailable === 0) {
-                 if(resultsContainer) resultsContainer.innerHTML = `<p>No articles found for the current filter (${activeFeedNameDisplay}).</p>`;
+                if (resultsContainer) resultsContainer.innerHTML = `<p>No articles found for the current filter (${activeFilterDisplay}).</p>`;
             }
 
-        } catch (error) { 
-            console.error('SCRIPT.JS: Error fetching summaries:', error); 
-            if(resultsContainer) resultsContainer.innerHTML = `<p class="error-message">Error fetching summaries: ${error.message}.</p>`; 
-            updatePaginationUI(0,0,0,0); 
+        } catch (error) {
+            console.error('SCRIPT.JS: Error fetching summaries:', error);
+            if (resultsContainer) resultsContainer.innerHTML = `<p class="error-message">Error fetching summaries: ${error.message}.</p>`;
+            updatePaginationUI(0, 0, 0, 0);
         }
-        finally { 
-            loadingIndicator.style.display = 'none'; 
+        finally {
+            loadingIndicator.style.display = 'none';
             console.log("SCRIPT.JS: fetchAndDisplaySummaries: Finished.");
         }
     }
 
-    if (refreshNewsBtn) { 
+    if (refreshNewsBtn) {
         refreshNewsBtn.addEventListener('click', async () => {
             if (!confirm("This will ask the backend to check all RSS feeds for new articles. Continue?")) return;
-            
+
             loadingText.textContent = 'Requesting backend to refresh RSS feeds...';
             loadingIndicator.style.display = 'flex';
             try {
                 const response = await fetch('/api/trigger-rss-refresh', { method: 'POST' });
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({detail: `HTTP error ${response.status}`}));
+                    const errorData = await response.json().catch(() => ({ detail: `HTTP error ${response.status}` }));
                     throw new Error(errorData.detail || "Failed to trigger RSS refresh.");
                 }
                 const result = await response.json();
                 alert(result.message || "RSS refresh initiated. New articles will appear after processing.");
                 setTimeout(() => {
-                    fetchAndDisplaySummaries(false, currentPage); 
-                }, 3000); 
+                    fetchAndDisplaySummaries(false, currentPage, keywordSearchInput.value.trim() || null);
+                }, 3000);
             } catch (error) {
                 console.error("Error triggering RSS refresh:", error);
                 alert(`Error: ${error.message}`);
@@ -640,15 +729,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     }
-    
+
     // --- UI Update Functions (Pagination, Results Display) ---
-    function updatePaginationUI(currentPg, totalPgs, pgSize, totalItems) { 
+    function updatePaginationUI(currentPg, totalPgs, pgSize, totalItems) {
         const renderControls = (container) => {
-            if (!container) return; 
-            container.innerHTML = ''; 
-            if (totalPgs <= 0) { // If no pages or only one page, don't show pagination
-                 if (totalItems > 0 && totalPgs === 1) { // Show page info if only one page but has items
-                    const pageInfo = document.createElement('span'); 
+            if (!container) return;
+            container.innerHTML = '';
+            if (totalPgs <= 0) {
+                 if (totalItems > 0 && totalPgs === 1) {
+                    const pageInfo = document.createElement('span');
                     pageInfo.classList.add('page-info');
                     pageInfo.textContent = `Page ${currentPg} of ${totalPgs} (${totalItems} articles)`;
                     container.appendChild(pageInfo);
@@ -656,107 +745,114 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            const prevButton = document.createElement('button'); 
+            const prevButton = document.createElement('button');
             prevButton.textContent = '‹ Previous';
-            prevButton.disabled = currentPg <= 1; 
-            prevButton.onclick = () => fetchAndDisplaySummaries(false, currentPg - 1);
+            prevButton.disabled = currentPg <= 1;
+            prevButton.onclick = () => fetchAndDisplaySummaries(false, currentPg - 1, keywordSearchInput.value.trim() || null);
             container.appendChild(prevButton);
 
-            const pageInfo = document.createElement('span'); 
+            const pageInfo = document.createElement('span');
             pageInfo.classList.add('page-info');
             pageInfo.textContent = `Page ${currentPg} of ${totalPgs} (${totalItems} articles)`;
             container.appendChild(pageInfo);
 
-            const nextButton = document.createElement('button'); 
+            const nextButton = document.createElement('button');
             nextButton.textContent = 'Next ›';
-            nextButton.disabled = currentPg >= totalPgs; 
-            nextButton.onclick = () => fetchAndDisplaySummaries(false, currentPg + 1);
+            nextButton.disabled = currentPg >= totalPgs;
+            nextButton.onclick = () => fetchAndDisplaySummaries(false, currentPg + 1, keywordSearchInput.value.trim() || null);
             container.appendChild(nextButton);
         };
-        renderControls(paginationControlsTop); 
+        renderControls(paginationControlsTop);
         renderControls(paginationControlsBottom);
     }
 
-    function displayResults(articles) { 
+    function displayResults(articles) {
         console.log("SCRIPT.JS: displayResults: Called with articles:", articles);
-        if (!articles || articles.length === 0) {
-            console.log("SCRIPT.JS: displayResults: No articles to display.");
-            if (resultsContainer && currentPage === 1) { 
-                 resultsContainer.innerHTML = '<p>No articles found for the current selection.</p>';
-            }
-            return;
-        }
         if (!resultsContainer) {
             console.error("SCRIPT.JS: displayResults: resultsContainer is null!");
             return;
         }
 
+        if (!articles || articles.length === 0) {
+            console.log("SCRIPT.JS: displayResults: No articles to display.");
+            return;
+        }
+
+
         articles.forEach((article, index) => {
-            const uniqueArticleCardId = `article-db-${article.id}`; 
+            const uniqueArticleCardId = `article-db-${article.id}`;
 
             const articleCard = document.createElement('div'); articleCard.classList.add('article-card');
             articleCard.setAttribute('id', uniqueArticleCardId);
-            
+
             const regenButton = document.createElement('button');
             regenButton.classList.add('regenerate-summary-btn');
             regenButton.title = "Regenerate Summary";
-            regenButton.onclick = () => openRegenerateModal(article.id); 
+            regenButton.onclick = () => openRegenerateModal(article.id);
             articleCard.appendChild(regenButton);
 
             const titleEl = document.createElement('h3'); titleEl.textContent = article.title || 'No Title Provided'; articleCard.appendChild(titleEl);
             const metaInfo = document.createElement('div'); metaInfo.classList.add('article-meta-info');
             if (article.publisher) { const p = document.createElement('span'); p.classList.add('article-publisher'); p.textContent = `Source: ${article.publisher}`; metaInfo.appendChild(p); }
-            if (article.published_date) { const d = document.createElement('span'); d.classList.add('article-published-date'); try { d.textContent = `Published: ${new Date(article.published_date).toLocaleString(undefined, { year: 'numeric', month: 'long', day: 'numeric', hour:'numeric', minute:'numeric' })}`; } catch (e) { d.textContent = `Published: ${article.published_date}`; } metaInfo.appendChild(d); }
+            if (article.published_date) { const d = document.createElement('span'); d.classList.add('article-published-date'); try { d.textContent = `Published: ${new Date(article.published_date).toLocaleString(undefined, { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' })}`; } catch (e) { d.textContent = `Published: ${article.published_date}`; } metaInfo.appendChild(d); }
             if (metaInfo.hasChildNodes()) articleCard.appendChild(metaInfo);
 
             if (article.url) { const l = document.createElement('a'); l.href = article.url; l.textContent = 'Read Full Article'; l.classList.add('source-link'); l.target = '_blank'; l.rel = 'noopener noreferrer'; articleCard.appendChild(l); }
-            
-            const summaryP = document.createElement('p');
+
+            const summaryP = document.createElement('div'); // Changed to div for innerHTML
             summaryP.classList.add('summary');
-            summaryP.setAttribute('id', `summary-text-${article.id}`); 
-            summaryP.textContent = article.summary || "No summary available.";
+            summaryP.setAttribute('id', `summary-text-${article.id}`);
+            summaryP.innerHTML = marked.parse(article.summary || "No summary available."); // Use marked.parse()
             articleCard.appendChild(summaryP);
-            
-            if (article.error_message && !article.summary) { 
-                const err = document.createElement('p'); 
-                err.classList.add('error-message'); 
-                err.textContent = `Note: ${article.error_message}`; 
-                articleCard.appendChild(err); 
-            }
-            
-            if (article.id && article.url && CHAT_API_ENDPOINT_BASE) { 
-                const chatSectionDiv = document.createElement('div'); 
-                chatSectionDiv.classList.add('chat-section');
-                const chatTitleEl = document.createElement('h4'); 
-                chatTitleEl.textContent = 'Ask about this article:'; 
-                chatSectionDiv.appendChild(chatTitleEl);
-                const chatInputGroupDiv = document.createElement('div'); 
-                chatInputGroupDiv.classList.add('chat-input-group');
-                const chatInputEl = document.createElement('input'); 
-                chatInputEl.setAttribute('type', 'text'); 
-                chatInputEl.setAttribute('placeholder', 'Your question...'); 
-                chatInputEl.classList.add('chat-question-input'); 
-                chatInputEl.setAttribute('id', `chat-input-${uniqueArticleCardId}`); 
-                chatInputGroupDiv.appendChild(chatInputEl);
-                const chatButtonEl = document.createElement('button'); 
-                chatButtonEl.textContent = 'Ask'; 
-                chatButtonEl.classList.add('chat-ask-button'); 
-                chatButtonEl.onclick = () => handleArticleChat(article.id, uniqueArticleCardId); 
-                chatInputEl.addEventListener('keypress', (event) => {
-                    if (event.key === 'Enter') {
-                        event.preventDefault(); 
-                        handleArticleChat(article.id, uniqueArticleCardId);
+
+            if (article.tags && article.tags.length > 0) {
+                const tagsContainer = document.createElement('div');
+                tagsContainer.classList.add('article-tags-container');
+                article.tags.forEach(tag => {
+                    const tagEl = document.createElement('span');
+                    tagEl.classList.add('article-tag');
+                    tagEl.textContent = tag.name;
+                    tagEl.setAttribute('data-tag-id', tag.id);
+                    tagEl.setAttribute('data-tag-name', tag.name);
+                    if (activeTagFilterIds.some(activeTag => activeTag.id === tag.id)) {
+                        tagEl.classList.add('active-filter-tag');
                     }
+                    tagEl.onclick = () => {
+                        const clickedTagId = parseInt(tagEl.getAttribute('data-tag-id'));
+                        const clickedTagName = tagEl.getAttribute('data-tag-name');
+                        const tagIndex = activeTagFilterIds.findIndex(t => t.id === clickedTagId);
+
+                        if (tagIndex > -1) {
+                            activeTagFilterIds.splice(tagIndex, 1);
+                            tagEl.classList.remove('active-filter-tag');
+                        } else {
+                            activeTagFilterIds.push({id: clickedTagId, name: clickedTagName });
+                            tagEl.classList.add('active-filter-tag');
+                        }
+                        activeFeedFilterIds = [];
+                        updateFilterButtonStyles();
+                        updateActiveTagFiltersUI();
+                        fetchAndDisplaySummaries(false, 1, keywordSearchInput.value.trim() || null);
+                    };
+                    tagsContainer.appendChild(tagEl);
                 });
-                chatInputGroupDiv.appendChild(chatButtonEl);
-                chatSectionDiv.appendChild(chatInputGroupDiv); 
-                const chatResponseAreaDiv = document.createElement('div'); 
-                chatResponseAreaDiv.classList.add('chat-response'); 
-                chatResponseAreaDiv.setAttribute('id', `chat-response-${uniqueArticleCardId}`);
-                fetchChatHistory(article.id, chatResponseAreaDiv); 
-                chatSectionDiv.appendChild(chatResponseAreaDiv);
-                articleCard.appendChild(chatSectionDiv);
+                articleCard.appendChild(tagsContainer);
             }
+
+
+            if (article.error_message && !article.summary) {
+                const err = document.createElement('p');
+                err.classList.add('error-message');
+                err.innerHTML = marked.parse(article.error_message); // Also parse error messages if they might contain markdown
+                articleCard.appendChild(err);
+            }
+
+            const openChatBtn = document.createElement('button');
+            openChatBtn.classList.add('open-chat-modal-btn');
+            openChatBtn.textContent = 'Chat about this article';
+            openChatBtn.onclick = () => openArticleChatModal(article);
+            articleCard.appendChild(openChatBtn);
+
             resultsContainer.appendChild(articleCard);
         });
         console.log("SCRIPT.JS: displayResults: Finished appending article cards.");
@@ -766,7 +862,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     function openRegenerateModal(articleId) {
         if (!regenerateSummaryModal || !modalArticleIdInput || !modalSummaryPromptInput) return;
         modalArticleIdInput.value = articleId;
-        modalSummaryPromptInput.value = currentSummaryPrompt || defaultSummaryPrompt; 
+        modalSummaryPromptInput.value = currentSummaryPrompt || defaultSummaryPrompt;
         regenerateSummaryModal.style.display = "block";
     }
 
@@ -777,11 +873,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (closeRegenerateModalBtn) {
         closeRegenerateModalBtn.onclick = closeRegenerateModal;
     }
-    window.onclick = function(event) {
+    window.addEventListener('click', function(event) {
         if (event.target == regenerateSummaryModal) {
             closeRegenerateModal();
         }
-    }
+    });
+
 
     if (modalUseDefaultPromptBtn) {
         modalUseDefaultPromptBtn.onclick = () => {
@@ -795,13 +892,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             const articleId = modalArticleIdInput.value;
             let customPrompt = modalSummaryPromptInput.value.trim();
 
-            if (!customPrompt) { 
+            if (!customPrompt) {
                 customPrompt = defaultSummaryPrompt;
             } else if (!customPrompt.includes("{text}")) {
                 alert("The custom prompt must include the placeholder {text} to insert the article content.");
                 return;
             }
-            
+
             const articleCardElement = document.getElementById(`article-db-${articleId}`);
             const summaryElement = document.getElementById(`summary-text-${articleId}`);
             const regenButton = articleCardElement ? articleCardElement.querySelector('.regenerate-summary-btn') : null;
@@ -812,8 +909,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            summaryElement.textContent = "Regenerating summary...";
-            if (regenButton) regenButton.disabled = true; 
+            summaryElement.innerHTML = marked.parse("Regenerating summary..."); // Use innerHTML
+            if (regenButton) regenButton.disabled = true;
 
             try {
                 const response = await fetch(`/api/articles/${articleId}/regenerate-summary`, {
@@ -827,13 +924,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     throw new Error(errorData.detail || "Failed to regenerate summary.");
                 }
                 const updatedArticle = await response.json();
-                summaryElement.textContent = updatedArticle.summary || "Summary regenerated, but no content returned.";
+                summaryElement.innerHTML = marked.parse(updatedArticle.summary || "Summary regenerated, but no content returned."); // Use innerHTML
                 if (updatedArticle.error_message) {
-                    summaryElement.textContent = `Error: ${updatedArticle.error_message}`;
+                    summaryElement.innerHTML = marked.parse(`Error: ${updatedArticle.error_message}`); // Use innerHTML
                 }
             } catch (error) {
                 console.error("Error regenerating summary:", error);
-                summaryElement.textContent = `Error: ${error.message}`;
+                summaryElement.innerHTML = marked.parse(`Error: ${error.message}`); // Use innerHTML
                 alert(`Failed to regenerate summary: ${error.message}`);
             } finally {
                 if (regenButton) regenButton.disabled = false;
@@ -842,79 +939,119 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // --- Article Chat Handling (Uses article_id from DB) ---
-    async function handleArticleChat(articleDbId, uniqueArticleCardId) { 
-        const questionInput = document.getElementById(`chat-input-${uniqueArticleCardId}`);
-        const responseDiv = document.getElementById(`chat-response-${uniqueArticleCardId}`);
-        const askButton = questionInput.nextElementSibling; 
+    // --- Article Chat Modal Logic (New) ---
+    function openArticleChatModal(articleData) {
+        if (!articleChatModal || !chatModalArticlePreviewContent || !chatModalHistory || !chatModalQuestionInput) return;
+        currentArticleForChat = articleData;
 
-        if (!questionInput || !responseDiv) return;
-        const question = questionInput.value.trim();
+        chatModalArticlePreviewContent.innerHTML = `
+            <h4>${articleData.title || 'No Title'}</h4>
+            <div class="article-summary-preview">${marked.parse(articleData.summary || 'No summary available.')}</div>
+            <a href="${articleData.url}" target="_blank" rel="noopener noreferrer" class="article-link-modal">Read Full Article</a>
+        `; // Use marked.parse() for summary preview
+
+        chatModalHistory.innerHTML = '';
+        fetchChatHistoryForModal(articleData.id, chatModalHistory);
+
+        articleChatModal.style.display = "block";
+        chatModalQuestionInput.focus();
+    }
+
+    function closeArticleChatModal() {
+        if (articleChatModal) articleChatModal.style.display = "none";
+        currentArticleForChat = null;
+    }
+
+    if (closeArticleChatModalBtn) {
+        closeArticleChatModalBtn.onclick = closeArticleChatModal;
+    }
+    window.addEventListener('click', function(event) {
+        if (event.target == articleChatModal) {
+            closeArticleChatModal();
+        }
+    });
+
+
+    async function handleModalArticleChat() {
+        if (!currentArticleForChat || !chatModalQuestionInput || !chatModalHistory || !chatModalAskButton) return;
+
+        const articleDbId = currentArticleForChat.id;
+        const question = chatModalQuestionInput.value.trim();
         if (!question) { alert('Please enter a question.'); return; }
 
         const qDiv = document.createElement('div');
         qDiv.classList.add('chat-history-q');
-        qDiv.textContent = `You: ${question}`;
-        responseDiv.appendChild(qDiv);
+        qDiv.innerHTML = `<strong>You:</strong> ${marked.parse(question)}`; // Use marked.parse()
+        chatModalHistory.appendChild(qDiv);
 
         const loadingChatP = document.createElement('p');
         loadingChatP.classList.add('chat-loading');
         loadingChatP.textContent = 'AI is thinking...';
-        responseDiv.appendChild(loadingChatP);
-        if (responseDiv.scrollHeight > responseDiv.clientHeight) responseDiv.scrollTop = responseDiv.scrollHeight;
+        chatModalHistory.appendChild(loadingChatP);
+        if (chatModalHistory.scrollHeight > chatModalHistory.clientHeight) chatModalHistory.scrollTop = chatModalHistory.scrollHeight;
 
-        questionInput.value = '';
-        questionInput.disabled = true;
-        if (askButton) askButton.disabled = true;
+        chatModalQuestionInput.value = '';
+        chatModalQuestionInput.disabled = true;
+        chatModalAskButton.disabled = true;
 
         try {
-            const payload = { 
-                article_id: articleDbId, 
+            const payload = {
+                article_id: articleDbId,
                 question: question,
-                chat_prompt: (currentChatPrompt !== defaultChatPrompt) ? currentChatPrompt : null 
+                chat_prompt: (currentChatPrompt !== defaultChatPrompt) ? currentChatPrompt : null
             };
-            const response = await fetch(`${CHAT_API_ENDPOINT_BASE}/chat-with-article`, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify(payload) 
+            const response = await fetch(`${CHAT_API_ENDPOINT_BASE}/chat-with-article`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
             });
-            
+
             loadingChatP.remove();
 
-            if (!response.ok) { 
-                const errorData = await response.json().catch(() => ({ detail: `HTTP error! status: ${response.status}` })); 
-                throw new Error(errorData.detail || `HTTP error! status: ${response.status}`); 
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ detail: `HTTP error! status: ${response.status}` }));
+                throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
             }
             const data = await response.json();
             const answer = data.answer || "No answer received.";
-            
-            if (data.new_chat_history_item) {
-                 const aDiv = document.createElement('div');
-                 aDiv.classList.add('chat-history-a');
-                 aDiv.textContent = `AI: ${answer}`;
-                 if (data.error_message || answer.startsWith("Error:")) { 
-                     aDiv.classList.add('error-message');
-                     aDiv.textContent = `AI: ${data.error_message || answer}`; 
-                 }
-                 responseDiv.appendChild(aDiv);
-            } else { 
-                await fetchChatHistory(articleDbId, responseDiv); 
-            }
 
-        } catch (error) { 
-            console.error('Error during article chat:', error); 
+            const aDiv = document.createElement('div');
+            aDiv.classList.add('chat-history-a');
+            aDiv.innerHTML = `<strong>AI:</strong> ${marked.parse(answer)}`; // Use marked.parse()
+            if (data.error_message || answer.startsWith("Error:")) {
+                aDiv.classList.add('error-message');
+                // For error messages, we might not want to parse as markdown if they are plain text errors
+                aDiv.innerHTML = `<strong>AI:</strong> ${marked.parse(data.error_message || answer)}`;
+            }
+            chatModalHistory.appendChild(aDiv);
+
+        } catch (error) {
+            console.error('Error during modal article chat:', error);
             const errorDiv = document.createElement('div');
             errorDiv.classList.add('chat-history-a', 'error-message');
-            errorDiv.textContent = `AI Error: ${error.message}`;
-            responseDiv.appendChild(errorDiv);
-        } finally { 
-            questionInput.disabled = false; 
-            if(askButton) askButton.disabled = false;
-            if (responseDiv.scrollHeight > responseDiv.clientHeight) responseDiv.scrollTop = responseDiv.scrollHeight;
-            questionInput.focus(); 
+            errorDiv.innerHTML = `<strong>AI Error:</strong> ${marked.parse(error.message)}`; // Use marked.parse()
+            chatModalHistory.appendChild(errorDiv);
+        } finally {
+            chatModalQuestionInput.disabled = false;
+            chatModalAskButton.disabled = false;
+            if (chatModalHistory.scrollHeight > chatModalHistory.clientHeight) chatModalHistory.scrollTop = chatModalHistory.scrollHeight;
+            chatModalQuestionInput.focus();
         }
     }
-    
+
+    if (chatModalAskButton) {
+        chatModalAskButton.onclick = handleModalArticleChat;
+    }
+    if (chatModalQuestionInput) {
+        chatModalQuestionInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                handleModalArticleChat();
+            }
+        });
+    }
+
+
     // --- Data Management (Setup Page) ---
     if (deleteOldDataBtn) {
         deleteOldDataBtn.addEventListener('click', async () => {
@@ -924,11 +1061,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            if (!confirm(`Are you sure you want to delete all articles (and their summaries/chat history) older than ${days} days? This action cannot be undone.`)) {
+            if (!confirm(`Are you sure you want to delete all articles (and their summaries/chat history/tags) older than ${days} days? This action cannot be undone.`)) {
                 return;
             }
 
-            if(deleteStatusMessage) deleteStatusMessage.textContent = "Deleting old data...";
+            if (deleteStatusMessage) deleteStatusMessage.textContent = "Deleting old data...";
             try {
                 const response = await fetch(`/api/admin/cleanup-old-data?days_old=${days}`, {
                     method: 'DELETE'
@@ -939,36 +1076,59 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
                 const result = await response.json();
                 alert(result.message || "Old data cleanup process completed.");
-                if(deleteStatusMessage) deleteStatusMessage.textContent = result.message || "Cleanup complete.";
-                fetchAndDisplaySummaries(false, 1); 
+                if (deleteStatusMessage) deleteStatusMessage.textContent = result.message || "Cleanup complete.";
+                fetchAndDisplaySummaries(false, 1, keywordSearchInput.value.trim() || null);
             } catch (error) {
                 console.error("Error deleting old data:", error);
                 alert(`Error: ${error.message}`);
-                if(deleteStatusMessage) deleteStatusMessage.textContent = `Error: ${error.message}`;
+                if (deleteStatusMessage) deleteStatusMessage.textContent = `Error: ${error.message}`;
             }
         });
     }
 
+    // --- Keyword Search Functionality ---
+    if (keywordSearchBtn) {
+        keywordSearchBtn.addEventListener('click', () => {
+            const searchTerm = keywordSearchInput.value.trim();
+            // No need to check if searchTerm is empty here, fetchAndDisplaySummaries will handle null
+            console.log("SCRIPT.JS: Keyword search initiated for:", searchTerm || "all articles");
+            activeFeedFilterIds = []; 
+            activeTagFilterIds = [];
+            updateFilterButtonStyles();
+            updateActiveTagFiltersUI();
+            fetchAndDisplaySummaries(false, 1, searchTerm || null);
+        });
+    }
+    if (keywordSearchInput) {
+        keywordSearchInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                keywordSearchBtn.click();
+            }
+        });
+    }
+
+
     // --- Navigation / Section Visibility ---
-    function showSection(sectionId) { 
+    function showSection(sectionId) {
         console.log(`SCRIPT.JS: showSection called for: ${sectionId}`);
         if (!mainFeedSection || !setupSection || !navMainBtn || !navSetupBtn) {
             console.error("SCRIPT.JS: showSection: One or more navigation/section elements not found.");
             return;
         }
-        mainFeedSection.classList.remove('active'); 
+        mainFeedSection.classList.remove('active');
         setupSection.classList.remove('active');
-        navMainBtn.classList.remove('active'); 
+        navMainBtn.classList.remove('active');
         navSetupBtn.classList.remove('active');
 
-        const sectionToShow = document.getElementById(sectionId); 
+        const sectionToShow = document.getElementById(sectionId);
         if (sectionToShow) {
             sectionToShow.classList.add('active');
             console.log(`SCRIPT.JS: Activated section: ${sectionId}`);
         } else {
             console.error(`SCRIPT.JS: Section with ID '${sectionId}' not found.`);
         }
-        
+
         if (sectionId === 'main-feed-section') {
             navMainBtn.classList.add('active');
         } else if (sectionId === 'setup-section') {
@@ -989,9 +1149,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
         console.error("SCRIPT.JS: navSetupBtn not found!");
     }
-    
+
     // --- Final Initialization Call ---
     console.log("SCRIPT.JS: About to call initializeAppSettings...");
-    await initializeAppSettings(); 
+    await initializeAppSettings();
     console.log("SCRIPT.JS: initializeAppSettings call finished.");
 });

@@ -52,7 +52,7 @@ header .tagline {
     background-color: #34495e; 
     padding: 12px 0;
     text-align: center;
-    margin-bottom: 25px; 
+    margin-bottom: 15px; /* Reduced margin */
 }
 
 .nav-button {
@@ -83,10 +83,38 @@ header .tagline {
     background-color: #c0392b; 
 }
 
+/* Search Container */
+.search-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 10px 0;
+    align-items: center;
+    justify-content: center; /* Center search bar */
+}
+
+#keyword-search-input {
+    flex-grow: 1; /* Allow input to take available space */
+    max-width: 400px; /* Max width for the search input */
+    padding: 10px 15px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 1em;
+}
+
+#keyword-search-btn {
+    /* Uses .nav-button styles, can add specific overrides if needed */
+    background-color: #3498db; /* Blue color for search button */
+    border-color: #3498db;
+}
+#keyword-search-btn:hover {
+    background-color: #2980b9;
+}
+
 
 /* Feed Filter Controls */
 .feed-filters {
-    margin-bottom: 25px;
+    margin-bottom: 10px; /* Adjusted margin */
     display: flex;
     flex-wrap: wrap; 
     gap: 10px; 
@@ -119,6 +147,33 @@ header .tagline {
     background-color: #ecf0f1; 
     border-color: #95a5a6; 
     transform: translateY(-1px); 
+}
+
+/* Active Tag Filters Display */
+.tag-filters-display {
+    margin-bottom: 15px;
+    padding: 8px 0;
+    text-align: center;
+    font-size: 0.9em;
+    color: #555;
+}
+.active-tag-filter {
+    display: inline-block;
+    background-color: #e74c3c; /* Red to indicate active filter */
+    color: white;
+    padding: 5px 10px;
+    border-radius: 15px;
+    margin: 0 5px 5px 0;
+    font-size: 0.85em;
+}
+.active-tag-filter .remove-tag-filter-btn {
+    margin-left: 8px;
+    color: #fdebd0;
+    cursor: pointer;
+    font-weight: bold;
+}
+.active-tag-filter .remove-tag-filter-btn:hover {
+    color: white;
 }
 
 
@@ -193,7 +248,7 @@ main {
     display: flex;
     flex-direction: column;
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    position: relative; /* For absolute positioning of regenerate button */
+    position: relative; 
 }
 .article-card:hover {
     transform: translateY(-5px);
@@ -205,27 +260,25 @@ main {
     position: absolute;
     top: 10px;
     right: 10px;
-    background-color: #f39c12; /* Orange color */
+    background-color: #f39c12; 
     color: white;
     border: none;
-    border-radius: 50%; /* Circular button */
+    border-radius: 50%; 
     width: 30px;
     height: 30px;
-    font-size: 16px; /* Adjust for icon size */
-    line-height: 30px; /* Center icon vertically */
+    font-size: 16px; 
+    line-height: 30px; 
     text-align: center;
     cursor: pointer;
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     transition: background-color 0.2s;
-    padding: 0; /* Remove padding if using line-height for centering */
+    padding: 0; 
 }
 .regenerate-summary-btn:hover {
-    background-color: #e67e22; /* Darker orange */
+    background-color: #e67e22; 
 }
-/* Simple refresh icon using text, replace with SVG/Font Icon if desired */
 .regenerate-summary-btn::before {
-    content: "\21BB"; /* Unicode clockwise arrow */
-    /* For FontAwesome: content: "\f021"; font-family: FontAwesome; */
+    content: "\21BB"; 
 }
 
 
@@ -235,7 +288,7 @@ main {
     color: #34495e;
     margin-top: 0;
     margin-bottom: 10px;
-    padding-right: 40px; /* Space for the regenerate button */
+    padding-right: 40px; 
 }
 
 .article-meta-info {
@@ -278,6 +331,55 @@ main {
     border-radius: 4px;
     margin-top: 10px;
 }
+
+/* Tags Styling */
+.article-tags-container {
+    margin-top: 10px;
+    margin-bottom: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.article-tag {
+    background-color: #ecf0f1;
+    color: #34495e;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 0.8em;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+    border: 1px solid #bdc3c7;
+}
+.article-tag:hover {
+    background-color: #1abc9c;
+    color: white;
+    border-color: #1abc9c;
+}
+.article-tag.active-filter-tag { /* Style for tags that are currently active filters */
+    background-color: #e74c3c;
+    color: white;
+    border-color: #c0392b;
+    font-weight: bold;
+}
+
+
+/* Chat Button on Article Card */
+.open-chat-modal-btn {
+    background-color: #3498db; /* Blue */
+    color: white;
+    padding: 8px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.2s;
+    margin-top: auto; /* Pushes to the bottom if card is flex-column */
+    align-self: flex-start; /* Align to the start of the cross axis */
+}
+.open-chat-modal-btn:hover {
+    background-color: #2980b9;
+}
+
 
 /* Pagination */
 .pagination-controls {
@@ -350,7 +452,7 @@ main {
     max-width: 150px; 
 }
 .form-group textarea {
-    min-height: 100px; 
+    min-height: 80px; /* Adjusted default textarea height */
     resize: vertical; 
 }
 .form-group small {
@@ -398,11 +500,11 @@ main {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-wrap: wrap; /* Allow controls to wrap on small screens */
+    flex-wrap: wrap; 
 }
 #rss-feeds-list li .feed-details {
     flex-grow: 1;
-    margin-right: 10px; /* Space before buttons */
+    margin-right: 10px; 
 }
 #rss-feeds-list li .feed-controls button {
     margin-left: 5px;
@@ -422,7 +524,7 @@ main {
     background-color: #c0392b;
 }
 .edit-feed-btn {
-    background-color: #3498db; /* Blue for edit */
+    background-color: #3498db; 
 }
 .edit-feed-btn:hover {
     background-color: #2980b9;
@@ -443,79 +545,13 @@ main {
     overflow-y: auto;
 }
 
-
-/* Chat Section within Article Card */
-.chat-section {
-    margin-top: 20px;
-    padding-top: 15px;
-    border-top: 1px solid #eee;
-}
-.chat-section h4 {
-    margin-top: 0;
-    margin-bottom: 10px;
-    font-size: 1.1em;
-    color: #333;
-}
-.chat-input-group {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 10px;
-}
-.chat-question-input {
-    flex-grow: 1;
-    padding: 8px 10px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 0.9em;
-}
-.chat-ask-button {
-    padding: 8px 15px;
-    background-color: #2980b9; 
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-.chat-ask-button:hover {
-    background-color: #2471a3; 
-}
-.chat-ask-button:disabled {
-    background-color: #bdc3c7;
-    cursor: not-allowed;
-}
-.chat-response {
-    font-size: 0.9em;
-    max-height: 150px; 
-    overflow-y: auto;
-    background-color: #f9f9f9; 
-    padding: 10px;
-    border-radius: 4px;
-    border: 1px solid #eee;
-}
-.chat-history-q, .chat-history-a, .chat-loading {
-    margin-bottom: 8px;
-    padding: 6px 8px;
-    border-radius: 4px;
-    line-height: 1.4;
-}
-.chat-history-q { 
-    background-color: #eaf2f8; 
-    text-align: right; 
-    margin-left: 20%; 
-}
-.chat-history-a { 
-    background-color: #e8f6f3; 
-    margin-right: 20%; 
-}
-.chat-loading {
-    color: #555;
-    font-style: italic;
-}
-.chat-response .error-message { 
-    background-color: #fadbd8;
-    color: #c0392b;
-}
+/* Chat Section (REMOVED from inline card, styles adapted for modal) */
+/* .chat-section { ... } */
+/* .chat-input-group { ... } */
+/* .chat-question-input { ... } */
+/* .chat-ask-button { ... } */
+/* .chat-response { ... } */
+/* .chat-history-q, .chat-history-a, .chat-loading { ... } */
 
 
 /* Footer */
@@ -528,27 +564,27 @@ footer {
     font-size: 0.9em;
 }
 
-/* Modal Styling */
+/* Modal Styling (General) */
 .modal {
-    display: none; /* Hidden by default */
-    position: fixed; /* Stay in place */
-    z-index: 1000; /* Sit on top */
+    display: none; 
+    position: fixed; 
+    z-index: 1000; 
     left: 0;
     top: 0;
-    width: 100%; /* Full width */
-    height: 100%; /* Full height */
-    overflow: auto; /* Enable scroll if needed */
-    background-color: rgba(0,0,0,0.5); /* Black w/ opacity */
-    padding-top: 60px; /* Location of the box */
+    width: 100%; 
+    height: 100%; 
+    overflow: auto; 
+    background-color: rgba(0,0,0,0.5); 
+    padding-top: 60px; 
 }
 
 .modal-content {
     background-color: #fefefe;
-    margin: 5% auto; /* 5% from the top and centered */
+    margin: 5% auto; 
     padding: 25px;
     border: 1px solid #888;
-    width: 80%; /* Could be more or less, depending on screen size */
-    max-width: 600px; /* Maximum width */
+    width: 80%; 
+    max-width: 600px; 
     border-radius: 8px;
     box-shadow: 0 5px 15px rgba(0,0,0,0.3);
     position: relative;
@@ -556,10 +592,10 @@ footer {
 
 .close-button {
     color: #aaa;
-    float: right; /* Position to the top-right corner */
+    float: right; 
     font-size: 28px;
     font-weight: bold;
-    position: absolute; /* Position relative to modal-content */
+    position: absolute; 
     top: 10px;
     right: 20px;
 }
@@ -582,7 +618,129 @@ footer {
     margin-bottom: 15px;
 }
 .modal .form-group textarea {
-    min-height: 80px; /* Smaller textarea for modal */
+    min-height: 80px; 
+}
+
+/* Article Chat Modal Specific Styling */
+.chat-modal-container .modal-content { /* Target chat modal specifically for larger size */
+    max-width: 900px; /* Wider modal for chat */
+    width: 90%;
+}
+
+.chat-modal-body {
+    display: flex;
+    gap: 20px; /* Space between article preview and chat interface */
+    max-height: 70vh; /* Limit overall height */
+}
+
+.chat-modal-article-preview {
+    flex: 1; /* Takes up 1 part of the space */
+    background-color: #f9f9f9;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid #eee;
+    overflow-y: auto; /* Scroll if content is too long */
+    font-size: 0.9em;
+}
+.chat-modal-article-preview h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #333;
+    font-size: 1.2em;
+}
+.chat-modal-article-preview .article-title {
+    font-weight: bold;
+    margin-bottom: 8px;
+    font-size: 1.1em;
+}
+.chat-modal-article-preview .article-summary-preview {
+    font-size: 0.9em;
+    color: #555;
+    max-height: 200px; /* Limit summary preview height */
+    overflow-y: auto;
+    margin-bottom: 10px;
+}
+.chat-modal-article-preview .article-link-modal {
+    display: block;
+    margin-top: 10px;
+    font-size: 0.85em;
+}
+
+
+.chat-modal-chat-interface {
+    flex: 2; /* Takes up 2 parts of the space, making chat wider */
+    display: flex;
+    flex-direction: column;
+}
+
+#chat-modal-history { /* Reusing .chat-response styles for the history part */
+    flex-grow: 1; /* Allows history to take available vertical space */
+    overflow-y: auto;
+    background-color: #f9f9f9;
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #eee;
+    margin-bottom: 10px; /* Space before input */
+    min-height: 200px; /* Ensure it has some initial height */
+}
+
+/* Chat history messages styling (can reuse/adapt from previous .chat-history-q/a) */
+#chat-modal-history .chat-history-q,
+#chat-modal-history .chat-history-a,
+#chat-modal-history .chat-loading {
+    margin-bottom: 8px;
+    padding: 8px 12px; /* Slightly more padding */
+    border-radius: 6px; /* Slightly more rounded */
+    line-height: 1.5;
+    word-wrap: break-word; /* Ensure long words break */
+}
+#chat-modal-history .chat-history-q {
+    background-color: #e0efff; /* Lighter blue for user questions */
+    text-align: right;
+    margin-left: 25%; /* Push to the right */
+}
+#chat-modal-history .chat-history-a {
+    background-color: #e6ffed; /* Lighter green for AI answers */
+    margin-right: 25%; /* Push to the left */
+}
+#chat-modal-history .chat-loading {
+    color: #777;
+    font-style: italic;
+    text-align: center;
+}
+#chat-modal-history .error-message {
+    background-color: #ffe0e0; /* Light red for errors */
+    color: #c0392b;
+    border: 1px solid #f5c6cb;
+}
+
+/* Chat input group within modal (reusing existing classes where possible) */
+.chat-modal-chat-interface .chat-input-group {
+    display: flex;
+    gap: 10px;
+}
+#chat-modal-question-input { /* Reuses .chat-question-input */
+    flex-grow: 1;
+    padding: 10px 12px; /* Slightly more padding */
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.95em;
+}
+#chat-modal-ask-button { /* Reuses .chat-ask-button */
+    padding: 10px 18px;
+    background-color: #2980b9;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+#chat-modal-ask-button:hover {
+    background-color: #2471a3;
+}
+#chat-modal-ask-button:disabled {
+    background-color: #bdc3c7;
+    cursor: not-allowed;
 }
 
 
@@ -601,6 +759,13 @@ footer {
         flex-wrap: wrap;
         justify-content: center;
     }
+    .search-container {
+        flex-direction: column; /* Stack search input and button */
+        gap: 8px;
+    }
+    #keyword-search-input {
+        max-width: 100%; /* Full width on smaller screens */
+    }
     .results-grid {
         grid-template-columns: 1fr; 
     }
@@ -611,10 +776,25 @@ footer {
         font-size: 0.85em;
         padding: 6px 10px;
     }
-    .modal-content {
+    .modal-content { /* General modal content */
         width: 90%;
         margin: 10% auto;
     }
+    .chat-modal-body {
+        flex-direction: column; /* Stack article preview and chat interface */
+        max-height: 80vh;
+    }
+    .chat-modal-article-preview, .chat-modal-chat-interface {
+        flex: none; /* Reset flex for stacked layout */
+        width: 100%;
+    }
+    .chat-modal-article-preview {
+        max-height: 150px; /* Limit height of preview on small screens */
+    }
+    #chat-modal-history {
+        min-height: 150px; /* Adjust min height for chat history */
+    }
+
 }
 
 @media (max-width: 480px) {
@@ -653,5 +833,12 @@ footer {
     .article-card h3 {
         font-size: 1.3em;
     }
+    .open-chat-modal-btn {
+        font-size: 0.85em;
+        padding: 7px 12px;
+    }
+    .article-tag {
+        font-size: 0.75em;
+        padding: 4px 8px;
+    }
 }
-

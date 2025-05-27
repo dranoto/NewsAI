@@ -6,13 +6,14 @@
     <title>AI News Today</title>
     <link rel="stylesheet" href="/static/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
     <div class="page-container">
         <header>
             <div class="container">
                 <h1>AI News Today</h1>
-                <p class="tagline">Your Curated Digest from Configurable RSS Feeds</p>
+                <p class="tagline">Your Curated Digest with AI-Powered Tags & Chat</p>
             </div>
         </header>
 
@@ -22,8 +23,16 @@
             <button id="refresh-news-btn" class="nav-button refresh-button">Manually Refresh Feeds</button>
         </nav>
 
+        <div class="search-container container">
+            <input type="search" id="keyword-search-input" placeholder="Search articles by keyword...">
+            <button id="keyword-search-btn" class="nav-button">Search</button>
+        </div>
+
         <div id="feed-filter-controls" class="container feed-filters">
             </div>
+        <div id="active-tag-filters-display" class="container tag-filters-display" style="display: none; margin-bottom: 15px;">
+            </div>
+
 
         <main class="container">
             <section id="main-feed-section" class="content-section active">
@@ -34,7 +43,8 @@
                 </div>
 
                 <div id="pagination-controls-top" class="pagination-controls"></div>
-                <div id="results-container" class="results-grid"></div>
+                <div id="results-container" class="results-grid">
+                    </div>
                 <div id="pagination-controls-bottom" class="pagination-controls"></div>
             </section>
 
@@ -91,24 +101,34 @@
 
                 <div class="setup-block">
                     <h3>AI Prompt Configuration</h3>
-                    <p>Customize the prompts used for generating summaries and chat responses. Use {text} for summary article placeholder and {article_text}, {question} for chat placeholders.</p>
+                    <p>Customize the prompts used for generating summaries, tags, and chat responses.
+                        Placeholders: Summary: {text}, Tags: {text}, Chat: {article_text}, {question}.
+                        Ensure your prompts instruct the AI to use Markdown for formatting if desired.
+                    </p>
                     <form id="ai-prompts-form">
                         <div class="form-group">
                             <label for="summary-prompt-input">Summary Prompt:</label>
-                            <textarea id="summary-prompt-input" rows="6" placeholder="Enter your custom summary prompt..."></textarea>
+                            <textarea id="summary-prompt-input" rows="4" placeholder="Enter your custom summary prompt..."></textarea>
                             <small>Default will be used if empty. Must contain {text}.</small>
                         </div>
                         <div class="form-group">
+                            <label for="tag-generation-prompt-input">Tag Generation Prompt:</label>
+                            <textarea id="tag-generation-prompt-input" rows="4" placeholder="Enter your custom tag generation prompt..."></textarea>
+                            <small>Default will be used if empty. Must contain {text}. Expected output: comma-separated tags.</small>
+                        </div>
+                        <div class="form-group">
                             <label for="chat-prompt-input">Chat Prompt:</label>
-                            <textarea id="chat-prompt-input" rows="6" placeholder="Enter your custom chat prompt..."></textarea>
+                            <textarea id="chat-prompt-input" rows="4" placeholder="Enter your custom chat prompt..."></textarea>
                              <small>Default will be used if empty. Expected placeholders: {article_text}, {question}. Or for no article: {question}.</small>
                         </div>
                         <button type="submit" class="submit-button">Save Prompts</button>
                         <button type="button" id="reset-prompts-btn" class="action-button" style="margin-left: 10px;">Reset to Defaults</button>
                     </form>
-                    <h4>Current Prompts:</h4>
+                    <h4>Current Prompts (Raw - Markdown will be rendered in output):</h4>
                     <p><strong>Summary Prompt Preview:</strong></p>
                     <pre id="current-summary-prompt-display" class="prompt-preview"></pre>
+                    <p><strong>Tag Generation Prompt Preview:</strong></p>
+                    <pre id="current-tag-generation-prompt-display" class="prompt-preview"></pre>
                     <p><strong>Chat Prompt Preview:</strong></p>
                     <pre id="current-chat-prompt-display" class="prompt-preview"></pre>
                 </div>
@@ -144,7 +164,7 @@
         </main>
         <footer>
             <div class="container">
-                <p>&copy; 2025 AI News Today. All summaries generated by AI.</p>
+                <p>&copy; 2025 AI News Today. All summaries and tags generated by AI.</p>
             </div>
         </footer>
     </div>
@@ -163,6 +183,27 @@
                 <button type="submit" class="submit-button">Regenerate</button>
                 <button type="button" id="modal-use-default-prompt-btn" class="action-button" style="margin-left: 10px;">Use Default Prompt</button>
             </form>
+        </div>
+    </div>
+
+    <div id="article-chat-modal" class="modal chat-modal-container" style="display:none;">
+        <div class="modal-content chat-modal-content">
+            <span class="close-button" id="close-article-chat-modal-btn">&times;</span>
+            <h3>Chat About Article</h3>
+            <div class="chat-modal-body">
+                <div class="chat-modal-article-preview" id="chat-modal-article-preview-content">
+                    <h4>Article Preview</h4>
+                    <p>Loading article details...</p>
+                </div>
+                <div class="chat-modal-chat-interface">
+                    <div id="chat-modal-history" class="chat-response">
+                        </div>
+                    <div class="chat-input-group">
+                        <input type="text" id="chat-modal-question-input" class="chat-question-input" placeholder="Your question...">
+                        <button id="chat-modal-ask-button" class="chat-ask-button">Ask</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
