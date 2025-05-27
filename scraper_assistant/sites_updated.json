@@ -1,0 +1,105 @@
+{
+  "Bloomberg Adria": {
+    "domain": "bloombergadria.com",
+    "allow_cookies": 1,
+    "block_js_inline": "\\.bloombergadria\\.com\\/.+\\/news",
+    "upd_version": "4.1.3.3"
+  },
+  "Business Post.ie": {
+    "domain": "businesspost.ie",
+    "allow_cookies": 1,
+    "block_regex": "\\.businesspost\\.ie\\/api\\/tinypass\\.min\\.js",
+    "add_ext_link": "div#bp_piano_article_subscription_offer|div.article-content",
+    "add_ext_link_type": "archive.is",
+    "upd_version": "4.1.2.6"
+  },
+  "Grupo Unidad Editorial": {
+    "domain": "###_es_unidad",
+    "group": [
+      "elmundo.es",
+      "expansion.com",
+      "marca.com"
+    ],
+    "allow_cookies": 1,
+    "block_regex": "(\\.tinypass\\.com\\/|\\.ampproject\\.org\\/v0\\/amp-(access|subscriptions)-.+\\.js)",
+    "amp_redirect": "div[class^='ue-c-article__premium']",
+    "amp_unhide": 1,
+    "upd_version": "4.1.2.4"
+  },
+  "Grupo Vocento": {
+    "domain": "###_es_grupo_vocento",
+    "group": [
+      "abc.es",
+      "canarias7.es",
+      "diariosur.es",
+      "diariovasco.com",
+      "elcomercio.es",
+      "elcorreo.com",
+      "eldiariomontanes.es",
+      "elnortedecastilla.es",
+      "hoy.es",
+      "ideal.es",
+      "larioja.com",
+      "lasprovincias.es",
+      "laverdad.es",
+      "lavozdigital.es"
+    ],
+    "allow_cookies": 1,
+    "block_regex": "\\.ampproject\\.org\\/v0\\/amp-access-.+\\.js",
+    "exception": [{
+        "domain": "abc.es",
+        "allow_cookies": 1,
+        "cs_block": 1,
+        "ld_json": "div.voc-paywall|p.voc-p"
+      }
+    ],
+    "upd_version": "4.1.2.7"
+  },
+  "Hindustan Times": {
+    "domain": "hindustantimes.com",
+    "allow_cookies": 1,
+    "block_regex": "\\.ampproject\\.org\\/v0\\/amp-access-.+\\.js",
+    "cs_code": "[{\"cond\":\".freemiumText\", \"rm_class\":\"freemiumText\"}]",
+    "upd_version": "4.1.2.9"
+  },
+  "InvestSmart (removed)": {
+    "domain": "###_au_investsmart",
+    "group": [
+      "intelligentinvestor.com.au",
+      "investsmart.com.au"
+    ],
+    "allow_cookies": 1,
+    "nofix": 1,
+    "upd_version": "4.1.3.4"
+  },
+  "Media Group Westfalen": {
+    "domain": "###_de_mgw",
+    "group": [
+      "ruhrnachrichten.de"
+    ],
+    "allow_cookies": 1,
+    "block_regex": "\\.tinypass\\.com",
+    "cs_block": 1,
+    "ld_archive_is": "header>h2>span.plus-icon|div#premium-content",
+    "upd_version": "4.1.2.1"
+  },
+  "NSC Total": {
+    "domain": "nsctotal.com.br",
+    "allow_cookies": 1,
+    "block_regex": "\\.nsctotal\\.com\\.br\\/wp-content\\/themes\\/nsctotal\\/js\\/paywall\\.min\\.js",
+    "upd_version": "4.1.2.6"
+  },
+  "The Business Journals": {
+    "domain": "bizjournals.com",
+    "allow_cookies": 1,
+    "block_regex": "\\.cxense\\.com",
+    "useragent": "googlebot",
+    "upd_version": "4.1.2.5"
+  },
+  "The Irish Examiner": {
+    "domain": "irishexaminer.com",
+    "allow_cookies": 1,
+    "useragent": "googlebot",
+    "upd_version": "4.1.2.8"
+  }
+}
