@@ -24,10 +24,10 @@ def _normalize_datetime(dt_input: Any) -> Optional[datetime]:
         return None
     
     parsed_date = None
-    if isinstance(dt_input, datetime): # If it's already a datetime object
-        if dt_input.tzinfo is None: # If naive
-            return dt_input.replace(tzinfo=timezone.utc) # Assume UTC
-        return dt_input # Already aware
+    if isinstance(dt_input, datetime): 
+        if dt_input.tzinfo is None: 
+            return dt_input.replace(tzinfo=timezone.utc) 
+        return dt_input 
 
     if isinstance(dt_input, tuple): 
         try:
@@ -58,22 +58,28 @@ def _normalize_datetime(dt_input: Any) -> Optional[datetime]:
     return parsed_date
 
 
-async def fetch_and_store_articles_from_feed(db: Session, feed_source: RSSFeedSource):
+async def fetch_and_store_articles_from_feed(db: Session, feed_source: RSSFeedSource) -> int: # Return type hint
+    """
+    Fetches articles from a single RSSFeedSource, stores new ones in the database,
+    and updates the feed_source's last_fetched_at timestamp.
+    This function expects to be called within an existing DB session management context (e.g., db_session_scope).
+    It will add objects to the session `db`, and the caller is responsible for commit/rollback.
+    """
     print(f"RSS_CLIENT: Fetching articles for: {feed_source.url} (Name: {feed_source.name})")
     feed_data = await _parse_feed_in_thread(feed_source.url)
 
-    current_time_utc = datetime.now(timezone.utc) # For updating last_fetched_at
+    current_time_utc = datetime.now(timezone.utc) 
 
     if feed_data is None or not hasattr(feed_data, 'feed') or not hasattr(feed_data, 'entries'):
         print(f"RSS_CLIENT: Failed to parse or invalid feed structure for {feed_source.url}")
         feed_source.last_fetched_at = current_time_utc
-        db.add(feed_source)
+        db.add(feed_source) # Add to session for later commit by caller
         return 0
 
     feed_title_from_rss = feed_data.feed.get('title', feed_source.url.split('/')[2] if len(feed_source.url.split('/')) > 2 else feed_source.url)
     if not feed_source.name and feed_title_from_rss: 
         feed_source.name = feed_title_from_rss
-        db.add(feed_source)
+        db.add(feed_source) # Add to session
 
     new_articles_count = 0
     processed_in_batch = 0
@@ -88,6 +94,7 @@ async def fetch_and_store_articles_from_feed(db: Session, feed_source: RSSFeedSo
         
         processed_in_batch +=1
 
+        # Check if article URL already exists (query within the provided session)
         existing_article = db.query(Article).filter(Article.url == article_url).first()
         if existing_article:
             continue 
@@ -100,47 +107,38 @@ async def fetch_and_store_articles_from_feed(db: Session, feed_source: RSSFeedSo
         if not title or not published_date_dt:
             continue
             
-        try:
-            new_article = Article(
-                feed_source_id=feed_source.id,
-                url=article_url,
-                title=title,
-                publisher_name=feed_source.name or feed_title_from_rss, 
-                published_date=published_date_dt, # Should be aware datetime
-            )
-            db.add(new_article)
-            new_articles_count += 1
-        except IntegrityError: 
-            db.rollback()
-            print(f"RSS_CLIENT: IntegrityError, likely duplicate URL not caught by pre-check: {article_url}")
-        except Exception as e:
-            db.rollback()
-            print(f"RSS_CLIENT: Error adding article {article_url} to DB: {e}")
+        # No try-except for db.add here; let errors propagate to the caller's transaction handler
+        new_article = Article(
+            feed_source_id=feed_source.id,
+            url=article_url,
+            title=title,
+            publisher_name=feed_source.name or feed_title_from_rss, 
+            published_date=published_date_dt,
+        )
+        db.add(new_article) # Add to session
+        new_articles_count += 1
 
     feed_source.last_fetched_at = current_time_utc
-    db.add(feed_source)
-    print(f"RSS_CLIENT: Finished processing feed {feed_source.name}. Added {new_articles_count} new articles.")
+    db.add(feed_source) # Add to session
+    print(f"RSS_CLIENT: Finished processing feed {feed_source.name}. Staged {new_articles_count} new articles for commit.")
     return new_articles_count
 
 
 async def update_all_subscribed_feeds(db: Session):
     print("RSS_CLIENT_SCHEDULER: Starting update for all subscribed feeds...")
-    now_aware = datetime.now(timezone.utc) # Ensure 'now' is offset-aware
+    now_aware = datetime.now(timezone.utc) 
     
     feeds_to_update = []
-    all_feeds = db.query(RSSFeedSource).all()
+    all_feeds = db.query(RSSFeedSource).all() # Use the passed-in session
     for feed in all_feeds:
         should_fetch = False
         if feed.last_fetched_at is None:
             should_fetch = True
             print(f"RSS_CLIENT_SCHEDULER: Feed '{feed.name}' (ID: {feed.id}) never fetched. Adding to update queue.")
         else:
-            # Ensure feed.last_fetched_at is offset-aware before comparison
             last_fetched_aware = feed.last_fetched_at
-            if last_fetched_aware.tzinfo is None:
-                # This case should ideally not happen if timezone=True is working correctly for DateTime column
-                # and all writes use timezone-aware datetimes.
-                print(f"RSS_CLIENT_SCHEDULER: Warning - Feed '{feed.name}' (ID: {feed.id}) has an offset-naive last_fetched_at. Assuming UTC.")
+            if last_fetched_aware.tzinfo is None or last_fetched_aware.tzinfo.utcoffset(last_fetched_aware) is None:
+                print(f"RSS_CLIENT_SCHEDULER: Warning - Feed '{feed.name}' (ID: {feed.id}) has an offset-naive last_fetched_at ('{last_fetched_aware}'). Assuming UTC.")
                 last_fetched_aware = last_fetched_aware.replace(tzinfo=timezone.utc)
             
             fetch_time_cutoff = now_aware - timedelta(minutes=feed.fetch_interval_minutes)
@@ -156,28 +154,37 @@ async def update_all_subscribed_feeds(db: Session):
         return
 
     print(f"RSS_CLIENT_SCHEDULER: Found {len(feeds_to_update)} feeds to update.")
-    total_new_articles = 0
+    total_new_articles_overall = 0
     for feed_source in feeds_to_update:
         try:
-            count = await fetch_and_store_articles_from_feed(db, feed_source)
-            total_new_articles += count
+            # fetch_and_store_articles_from_feed will add to the session `db`
+            newly_added_for_this_feed = await fetch_and_store_articles_from_feed(db, feed_source)
+            db.commit() # Commit after each feed is successfully processed
+            total_new_articles_overall += newly_added_for_this_feed
+            print(f"RSS_CLIENT_SCHEDULER: Successfully processed and committed feed '{feed_source.name}'. Added {newly_added_for_this_feed} articles.")
         except Exception as e:
-            print(f"RSS_CLIENT_SCHEDULER: Error processing feed {feed_source.url}: {e}")
-            # Ensure last_fetched_at is updated even on error to prevent immediate retry loop for this feed
+            db.rollback() # Rollback changes for this specific feed if an error occurred during its processing or commit
+            print(f"RSS_CLIENT_SCHEDULER: Error processing feed {feed_source.url}: {e}. Rolled back changes for this feed.")
+            # Attempt to update just the timestamp for the errored feed so it's not immediately retried
             try:
-                feed_source_to_update_on_error = db.query(RSSFeedSource).filter(RSSFeedSource.id == feed_source.id).first()
-                if feed_source_to_update_on_error:
-                    feed_source_to_update_on_error.last_fetched_at = datetime.now(timezone.utc) 
-                    db.add(feed_source_to_update_on_error)
-                    # The overall commit is handled by the session scope in the calling function (trigger_rss_update_all_feeds)
-            except Exception as e_update_ts:
-                 print(f"RSS_CLIENT_SCHEDULER: Critical error updating timestamp for errored feed {feed_source.url}: {e_update_ts}")
+                # The feed_source object might be in a weird state after rollback, re-fetch if necessary,
+                # but since we are in the same session, just marking it and adding should be fine for a new commit.
+                # For safety, ensure it's part of the session if it became detached.
+                if feed_source not in db:
+                    feed_source = db.query(RSSFeedSource).filter(RSSFeedSource.id == feed_source.id).first()
+                
+                if feed_source: # Check if re-fetch was successful
+                    feed_source.last_fetched_at = datetime.now(timezone.utc) 
+                    db.add(feed_source)
+                    db.commit() # Commit this small update
+                    print(f"RSS_CLIENT_SCHEDULER: Updated last_fetched_at for errored feed {feed_source.url}.")
+            except Exception as e_ts:
+                db.rollback() # Rollback timestamp update attempt
+                print(f"RSS_CLIENT_SCHEDULER: Critical error updating timestamp for errored feed {feed_source.url}: {e_ts}")
 
-
-    print(f"RSS_CLIENT_SCHEDULER: Finished feed update cycle. Added {total_new_articles} new articles in total.")
+    print(f"RSS_CLIENT_SCHEDULER: Finished feed update cycle. Total new articles committed across all feeds: {total_new_articles_overall}.")
 
 def add_initial_feeds_to_db(db: Session, feed_urls: list[str]):
-    # ... (This function remains the same, ensure it sets fetch_interval_minutes) ...
     print(f"RSS_CLIENT: Attempting to add/verify initial feeds: {feed_urls}")
     added_count = 0
     for url in feed_urls:
@@ -189,17 +196,21 @@ def add_initial_feeds_to_db(db: Session, feed_urls: list[str]):
                 new_feed = RSSFeedSource(
                     url=url, 
                     name=feed_name_guess, 
-                    fetch_interval_minutes=app_config.DEFAULT_RSS_FETCH_INTERVAL_MINUTES # Ensure this is set
+                    fetch_interval_minutes=app_config.DEFAULT_RSS_FETCH_INTERVAL_MINUTES 
                 )
                 db.add(new_feed)
+                # Commit for each new feed added here to ensure it's in DB before scheduler might run
+                # This function is typically called once at startup.
+                db.commit() 
                 added_count += 1
-                print(f"RSS_CLIENT: Added new feed source to DB: {url}")
+                print(f"RSS_CLIENT: Added new feed source to DB and committed: {url}")
             except IntegrityError:
                 db.rollback()
                 print(f"RSS_CLIENT: Feed already exists (IntegrityError on add): {url}")
             except Exception as e:
                 db.rollback()
                 print(f"RSS_CLIENT: Error adding feed {url} to DB: {e}")
+    # No final commit here as each add is committed individually.
     if added_count > 0:
         print(f"RSS_CLIENT: Added {added_count} new feed sources to the database.")
     else:
