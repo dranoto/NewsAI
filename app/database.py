@@ -6,26 +6,22 @@ from sqlalchemy.sql import func
 from contextlib import contextmanager
 from typing import Generator, Any 
 
-from . import config # Import the config module to access its variables
+from . import config 
 
-# Use the DATABASE_URL defined in config.py
-# This ensures consistency and that the subdirectory is part of the path.
 DATABASE_URL = config.DATABASE_URL 
 
 # Ensure the directory for the SQLite database exists
 if DATABASE_URL.startswith("sqlite:///./"):
-    # Path is relative to the CWD of the application
     db_file_path = DATABASE_URL.replace("sqlite:///./", "") 
     db_dir = os.path.dirname(db_file_path) 
-    if db_dir and not os.path.exists(db_dir): # Check if the "data" directory (or similar) exists
+    if db_dir and not os.path.exists(db_dir): 
         try:
             os.makedirs(db_dir, exist_ok=True)
             print(f"DATABASE: Created directory '{db_dir}' for SQLite database.")
         except OSError as e:
             print(f"DATABASE: Error creating directory '{db_dir}': {e}. Database might fail to create if path is invalid.")
 elif DATABASE_URL.startswith("sqlite:///"):
-    # Absolute path
-    db_file_path = DATABASE_URL.replace("sqlite:///", "/") # Get absolute path
+    db_file_path = DATABASE_URL.replace("sqlite:///", "/") 
     db_dir = os.path.dirname(db_file_path)
     if db_dir and not os.path.exists(db_dir):
         try:
@@ -37,7 +33,10 @@ elif DATABASE_URL.startswith("sqlite:///"):
 
 engine = create_engine(
     DATABASE_URL, 
-    connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+    connect_args={
+        "check_same_thread": False,
+        "timeout": 15  # Increased timeout to 15 seconds (default is 5)
+        } if DATABASE_URL.startswith("sqlite") else {}
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -46,7 +45,6 @@ Base = declarative_base()
 
 @contextmanager
 def db_session_scope() -> Generator[SQLAlchemySession, None, None]:
-    """Provide a transactional scope around a series of operations."""
     db = SessionLocal()
     try:
         yield db
@@ -58,16 +56,14 @@ def db_session_scope() -> Generator[SQLAlchemySession, None, None]:
         db.close()
 
 def get_db() -> Generator[SQLAlchemySession, None, None]:
-    """FastAPI dependency that provides a SQLAlchemy session."""
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
 
-
 # --- Database Models ---
-# ... (Models: RSSFeedSource, Article, Summary, ChatHistory remain unchanged from previous version) ...
+# ... (Models: RSSFeedSource, Article, Summary, ChatHistory remain unchanged) ...
 class RSSFeedSource(Base):
     __tablename__ = "rss_feed_sources"
 
@@ -146,8 +142,6 @@ class ChatHistory(Base):
     def __repr__(self):
         return f"<ChatHistory(id={self.id}, article_id={self.article_id}, question='{self.question[:50]}...')>"
 
-
-# --- Utility to Create Tables ---
 def create_db_and_tables():
     print("Attempting to create database tables...")
     try:

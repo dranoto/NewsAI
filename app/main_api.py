@@ -6,6 +6,7 @@ from pydantic import BaseModel, HttpUrl, Field
 from typing import List, Optional, Dict, Any 
 import math
 from datetime import datetime, timezone, timedelta 
+import asyncio # Added for asyncio.Lock
 
 from sqlalchemy.orm import Session as SQLAlchemySession 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -14,13 +15,13 @@ from apscheduler.triggers.interval import IntervalTrigger
 from . import rss_client, scraper, summarizer, config as app_config, database 
 from .database import Article, Summary, ChatHistory, RSSFeedSource, get_db, db_session_scope, create_db_and_tables
 
-app = FastAPI(title="News Summarizer API & Frontend (DB & Scheduler)", version="1.5.1") # Version increment
+app = FastAPI(title="News Summarizer API & Frontend (DB & Scheduler)", version="1.5.2") # Version increment
 
 # --- Global Variables & Scheduler ---
 llm_summary_instance: Optional[summarizer.GoogleGenerativeAI] = None
 llm_chat_instance: Optional[summarizer.GoogleGenerativeAI] = None
 scheduler = AsyncIOScheduler(timezone="UTC")
-
+rss_update_lock = asyncio.Lock() # Lock to prevent concurrent RSS updates
 
 @app.on_event("startup")
 async def startup_event():
@@ -38,6 +39,7 @@ async def startup_event():
             print("MAIN_API: No initial RSS_FEED_URLS configured in app_config to add to DB.")
 
     print("MAIN_API: Attempting to initialize LLM instances...")
+    # ... (LLM init code remains the same) ...
     try:
         if not app_config.GEMINI_API_KEY:
             print("MAIN_API: CRITICAL ERROR: GEMINI_API_KEY not found. LLM features will be disabled.")
@@ -62,6 +64,7 @@ async def startup_event():
         llm_summary_instance = None
         llm_chat_instance = None
 
+
     if not scheduler.running:
         scheduler.add_job(
             trigger_rss_update_all_feeds, 
@@ -69,7 +72,9 @@ async def startup_event():
             id="update_all_feeds_job", 
             name="Periodic RSS Feed Update",
             replace_existing=True,
-            next_run_time=datetime.now(timezone.utc) 
+            next_run_time=datetime.now(timezone.utc),
+            max_instances=1,  # Ensure only one instance of this job runs at a time
+            coalesce=True     # If multiple runs are due, run only the latest one
         )
         scheduler.start()
         print(f"MAIN_API: APScheduler started. RSS feeds will be checked every {app_config.DEFAULT_RSS_FETCH_INTERVAL_MINUTES} minutes.")
@@ -80,20 +85,36 @@ async def startup_event():
 
 @app.on_event("shutdown")
 def shutdown_event():
+    # ... (shutdown logic remains the same) ...
     global scheduler
     if scheduler.running:
         print("MAIN_API: Shutting down APScheduler...")
         scheduler.shutdown()
     print("MAIN_API: Application shutdown complete.")
 
+
 async def trigger_rss_update_all_feeds():
-    print("SCHEDULER_JOB: Triggering update_all_subscribed_feeds...")
-    with db_session_scope() as db: 
-        await rss_client.update_all_subscribed_feeds(db)
-    print("SCHEDULER_JOB: update_all_subscribed_feeds task finished.")
+    # This function is called by APScheduler and by manual trigger (via BackgroundTask)
+    if rss_update_lock.locked():
+        print("SCHEDULER_JOB/BG_TASK: RSS update already in progress. Skipping this run.")
+        return
+
+    async with rss_update_lock: # Acquire the lock
+        print("SCHEDULER_JOB/BG_TASK: Acquired lock. Triggering update_all_subscribed_feeds...")
+        try:
+            with db_session_scope() as db: 
+                await rss_client.update_all_subscribed_feeds(db)
+            print("SCHEDULER_JOB/BG_TASK: update_all_subscribed_feeds task finished successfully.")
+        except Exception as e:
+            print(f"SCHEDULER_JOB/BG_TASK: Exception during update_all_subscribed_feeds: {e}")
+            import traceback
+            traceback.print_exc() # Print full traceback for the background task/job
+        # Lock is released automatically when exiting 'async with'
+    print("SCHEDULER_JOB/BG_TASK: Lock released.")
 
 
 # --- Pydantic Models ---
+# ... (Pydantic models remain the same) ...
 class InitialConfigResponse(BaseModel):
     default_rss_feeds: List[str] 
     all_db_feed_sources: List[Dict[str, Any]] 
@@ -169,12 +190,12 @@ class RegenerateSummaryRequest(BaseModel):
     custom_prompt: Optional[str] = None
 
 
-# --- Helper for Preloading (Modified for DB interaction & robust iteration) ---
+# --- Helper for Preloading ---
+# ... (_preload_summaries_for_urls function remains the same) ...
 async def _preload_summaries_for_urls(
     article_data_to_preload: List[Dict[str, Any]], 
     custom_summary_prompt: Optional[str] = None 
 ):
-    # ... (This function remains the same as the last version in the Canvas) ...
     if not article_data_to_preload or not llm_summary_instance: 
         if not llm_summary_instance: print("BACKGROUND PRELOAD (DB): Summarization LLM not available. Preload aborted.")
         else: print("BACKGROUND PRELOAD (DB): No articles provided for preloading.")
@@ -274,8 +295,8 @@ async def _preload_summaries_for_urls(
         
     print(f"BACKGROUND PRELOAD (DB): Finished processing batch. Attempted: {processed_count}/{len(article_data_to_preload)}. Successfully summarized: {successfully_summarized_count}.")
 
-
 # --- API Endpoints ---
+# ... (get_initial_config_endpoint and get_news_summaries_endpoint and other endpoints remain the same as the last fully provided version)
 @app.get("/api/initial-config", response_model=InitialConfigResponse)
 async def get_initial_config_endpoint(db: SQLAlchemySession = Depends(get_db)):
     db_feeds = db.query(RSSFeedSource).order_by(RSSFeedSource.name).all()
@@ -390,9 +411,7 @@ async def get_news_summaries_endpoint(query: NewsPageQuery, background_tasks: Ba
                 lc_doc_to_summarize, llm_summary_instance, query.summary_prompt # type: ignore
             )
             
-            # Before adding a new summary, delete old ones for this article_id
             db.query(Summary).filter(Summary.article_id == article_db_id).delete(synchronize_session=False)
-            # print(f"MAIN API: Deleted old summaries for Article ID {article_db_id} before adding new one.")
 
             new_summary_db = Summary(
                 article_id=article_db_id, 
@@ -469,32 +488,27 @@ async def regenerate_article_summary(
             scraped_content = scraped_docs[0].page_content
             article_db.scraped_content = scraped_content
             db.add(article_db)
-            # db.commit() # Commit separately or let the summary commit handle it below
         else:
             error_msg = scraped_docs[0].metadata.get("error", "Failed to re-scrape content") if scraped_docs and scraped_docs[0] else "Failed to re-scrape content"
-            article_db.scraped_content = f"Scraping Error: {error_msg}" # Store error in scraped_content
+            article_db.scraped_content = f"Scraping Error: {error_msg}" 
             db.add(article_db)
-            db.commit() # Commit the scraping error
+            db.commit() 
             raise HTTPException(status_code=500, detail=f"Failed to get content for summarization: {error_msg}")
     
-    if not scraped_content or scraped_content.startswith("Error:") or scraped_content.startswith("Content Error:"): # Double check after potential scrape
+    if not scraped_content or scraped_content.startswith("Error:") or scraped_content.startswith("Content Error:"): 
         raise HTTPException(status_code=500, detail="Article content is still invalid after attempting re-scrape.")
 
-
     lc_doc = scraper.Document(page_content=scraped_content, metadata={"source": article_db.url, "id": article_db.id})
-    
     prompt_to_use = request.custom_prompt if request.custom_prompt and request.custom_prompt.strip() else app_config.DEFAULT_SUMMARY_PROMPT
 
     new_summary_text = await summarizer.summarize_document_content(
         lc_doc, llm_summary_instance, prompt_to_use # type: ignore
     )
 
-    # Delete existing summaries for this article before adding the new one
     deleted_count = db.query(Summary).filter(Summary.article_id == article_id).delete(synchronize_session=False)
     if deleted_count > 0:
         print(f"API: Deleted {deleted_count} old summary/summaries for Article ID {article_id} before regeneration.")
     
-    # Save the new summary (this will become the latest and only one)
     new_summary_db_obj = Summary(
         article_id=article_id,
         summary_text=new_summary_text,
@@ -529,12 +543,6 @@ async def cleanup_old_data_endpoint(days_old: int = Query(30, ge=1), db: SQLAlch
     article_deleted_count = articles_to_delete_query.count() 
     
     if article_deleted_count > 0:
-        # Fetch IDs first if direct delete with cascade has issues or for logging
-        # article_ids_to_delete = [article.id for article in articles_to_delete_query.all()]
-        # print(f"API: Will attempt to delete articles with IDs: {article_ids_to_delete}")
-        
-        # The cascade="all, delete-orphan" on Article.summaries and Article.chat_history
-        # should handle deletion of related records when an Article is deleted.
         articles_to_delete_query.delete(synchronize_session=False)
         print(f"API: Deleted {article_deleted_count} old article records (and their related summaries/chat history via cascade).")
     else:
@@ -542,7 +550,6 @@ async def cleanup_old_data_endpoint(days_old: int = Query(30, ge=1), db: SQLAlch
 
     db.commit()
     return {"message": f"Cleanup process completed. Deleted {article_deleted_count} articles (and related data) older than {days_old} days."}
-
 
 @app.get("/api/article/{article_id}/chat-history", response_model=List[ChatHistoryItem])
 async def get_article_chat_history(article_id: int, db: SQLAlchemySession = Depends(get_db)):
