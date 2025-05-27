@@ -6,16 +6,20 @@ import json
 load_dotenv() # Load environment variables from .env file
 
 # --- Database Configuration ---
-SQLITE_DB_SUBDIR = "data"  # Ensures the database is in a subdirectory
-SQLITE_DB_FILE = "newsai.db" # Name of the SQLite database file
-# This constructs the path like ./data/newsai.db relative to the app's CWD
+SQLITE_DB_SUBDIR = "data"
+SQLITE_DB_FILE = "newsai.db"
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///./{SQLITE_DB_SUBDIR}/{SQLITE_DB_FILE}")
 
 # --- LLM Configuration ---
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 DEFAULT_SUMMARY_MODEL_NAME = os.getenv("DEFAULT_SUMMARY_MODEL_NAME", "gemini-1.5-flash-latest")
 DEFAULT_CHAT_MODEL_NAME = os.getenv("DEFAULT_CHAT_MODEL_NAME", "gemini-1.5-flash-latest")
-DEFAULT_TAG_MODEL_NAME = os.getenv("DEFAULT_TAG_MODEL_NAME", "gemini-1.5-flash-latest") # New model for tags
+DEFAULT_TAG_MODEL_NAME = os.getenv("DEFAULT_TAG_MODEL_NAME", "gemini-1.5-flash-latest")
+
+# Max output tokens for different LLM tasks
+SUMMARY_MAX_OUTPUT_TOKENS = int(os.getenv("SUMMARY_MAX_OUTPUT_TOKENS", 1024)) # Increased slightly
+CHAT_MAX_OUTPUT_TOKENS = int(os.getenv("CHAT_MAX_OUTPUT_TOKENS", 4096))    # Increased significantly
+TAG_MAX_OUTPUT_TOKENS = int(os.getenv("TAG_MAX_OUTPUT_TOKENS", 100))       # Remains the same, usually short
 
 # --- RSS Feed Configuration ---
 rss_feeds_env_str = os.getenv("RSS_FEED_URLS", "")
@@ -59,23 +63,49 @@ USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 REQUEST_TIMEOUT = 10
 
 # Default AI Prompts
-DEFAULT_SUMMARY_PROMPT = os.getenv("DEFAULT_SUMMARY_PROMPT", """Please provide a summary of the following article.
-Focus on the key information and main points. Use up to three bullet points for key information at the top of the summary.
-The summary should then be a single, coherent paragraph of about 3-5 sentences.
-If the article is very short, trivial, or an error page, indicate that clearly.
+DEFAULT_SUMMARY_PROMPT = os.getenv("DEFAULT_SUMMARY_PROMPT", """Task:Generate a concise, narrative summary of the following article. The output must be Markdown-formatted and meticulously optimized for scannability, readability, and minimal cognitive load. (Note: The article title will be provided separately).
+Format & Content:
 
-Article:
-{text}
+Key Takeaways (1-3 Labeled Bullets):
+Present the most critical facts using * bullets.
+Prefix each bullet with a bold semantic label (choose from: Who:, What:, Where:, When:, Why:, How:, Impact:, Context:, Next: - use the most relevant 1-3 labels).
+Keep the bullet text concise (max 10-15 words).
+Use bold Markdown on the most crucial 1-3 words within the bullet text itself.
+Example: * **Impact:** This **challenges existing models**.
+Narrative Context (3-5 Sentences):
+Follow with a single, coherent paragraph.
+The first sentence must immediately set the scene or state the primary significance.
+This paragraph must connect the key takeaways, providing narrative flow, context, or deeper meaning.
+It must build upon, not just repeat, the bullets by explaining how events unfolded or why they matter.
+Use italics sparingly for emphasis if needed.
+Style & Principles:
 
+Clarity: Use active voice, strong verbs, and simple, direct language. Avoid or explain jargon.
+Structure: Ensure short sentences and the defined format enhance scannability.
+Markdown: Use **bold** and *italics* strategically to guide the eye, not overwhelm it.
+Storytelling: Weave a clear, engaging narrative within the paragraph.
+Tone: Maintain an objective, professional, yet compelling tone.
+Edge Case Handling:
+
+If the article is very short, trivial, an error page, or lacks substantive information, respond only with: *Article content insufficient for summary.*
+Article:{text}
 Summary:""")
 
-DEFAULT_CHAT_PROMPT = os.getenv("DEFAULT_CHAT_PROMPT", """You are a helpful AI assistant. Review the article text provided below and  answer the user's question based on both general knowledge and the article.
-
-Article:
-{article_text}
-
+DEFAULT_CHAT_PROMPT = os.getenv("DEFAULT_CHAT_PROMPT", """Persona & Goal:You are an insightful AI analyst and conversational partner. Your purpose is to help the user explore the provided article's content in greater depth, moving beyond the initial summary. Aim to provide rich, multi-faceted answers that synthesize information, offer context, and encourage further thought.
+Context:The user has likely seen a concise V5 summary and is now asking a specific question ({question}) about the article ({article_text}). They are looking for more than just a surface-level answer.
+Instructions for Answering:
+Ground in the Article: Base your core answer firmly on the provided {article_text}. Reference or quote specific points where it adds clarity. If the article doesn't cover the question, state so explicitly.
+Synthesize & Enrich: Go beyond simple extraction. Connect ideas within the article and enrich the answer with relevant general knowledge.
+Integrate Perspectives (Where Appropriate): Add significant value by briefly incorporating insights or analytical lenses from fields such as:Psychology/Behavior: (e.g., Why might people react this way? What biases could be at play?)
+Neurology/Cognition: (e.g., How might this information be processed? Are there cognitive implications?)
+Systems Thinking: (e.g., How does this fit into a larger system? What are the feedback loops?)
+Leadership/Strategy: (e.g., What are the strategic implications or leadership lessons?)
+(Use these lenses judiciously, only when they genuinely add relevant depth to the specific question asked).
+Structure for Clarity: Present your answer clearly. Use Markdown (like **bolding** for key terms or * bullet points for lists) to enhance readability and minimize cognitive load.
+Maintain Tone: Respond in a professional, objective, yet supportive and conversational tone.
+Encourage Dialogue: Crucially, end your response by inviting further interaction. Ask a follow-up question, suggest a related area to explore, or check if your answer fully addressed their need. (e.g., "Does that help clarify the issue, or would you be interested in how this compares to X?" or "What are your thoughts on that particular aspect?")
+Input:Article:{article_text}
 Question: {question}
-
 Answer:""")
 
 CHAT_NO_ARTICLE_PROMPT = os.getenv("CHAT_NO_ARTICLE_PROMPT", """You are a helpful AI assistant. The user is asking a question, but unfortunately, the content of the article could not be loaded.
@@ -96,18 +126,23 @@ Tags:""")
 
 
 # Playwright specific settings
-PLAYWRIGHT_TIMEOUT = 30000
+PLAYWRIGHT_TIMEOUT = 20000
 
 if not GEMINI_API_KEY:
     print("WARNING: GEMINI_API_KEY environment variable is not set. LLM features will be impaired.")
 
-print(f"CONFIG LOADED: DATABASE_URL: {DATABASE_URL}") # Crucial log
+print(f"CONFIG LOADED: DATABASE_URL: {DATABASE_URL}")
 print(f"CONFIG LOADED: GEMINI_API_KEY Set: {'Yes' if GEMINI_API_KEY else 'NO'}")
 print(f"CONFIG LOADED: DEFAULT_SUMMARY_MODEL_NAME: {DEFAULT_SUMMARY_MODEL_NAME}")
 print(f"CONFIG LOADED: DEFAULT_CHAT_MODEL_NAME: {DEFAULT_CHAT_MODEL_NAME}")
-print(f"CONFIG LOADED: DEFAULT_TAG_MODEL_NAME: {DEFAULT_TAG_MODEL_NAME}") # Log new model
+print(f"CONFIG LOADED: DEFAULT_TAG_MODEL_NAME: {DEFAULT_TAG_MODEL_NAME}")
+print(f"CONFIG LOADED: SUMMARY_MAX_OUTPUT_TOKENS: {SUMMARY_MAX_OUTPUT_TOKENS}")
+print(f"CONFIG LOADED: CHAT_MAX_OUTPUT_TOKENS: {CHAT_MAX_OUTPUT_TOKENS}")
+print(f"CONFIG LOADED: TAG_MAX_OUTPUT_TOKENS: {TAG_MAX_OUTPUT_TOKENS}")
 print(f"CONFIG LOADED: RSS_FEED_URLS from ENV: {RSS_FEED_URLS}")
 print(f"CONFIG LOADED: DEFAULT_PAGE_SIZE: {DEFAULT_PAGE_SIZE}")
 print(f"CONFIG LOADED: MAX_ARTICLES_PER_INDIVIDUAL_FEED: {MAX_ARTICLES_PER_INDIVIDUAL_FEED}")
 print(f"CONFIG LOADED: DEFAULT_RSS_FETCH_INTERVAL_MINUTES: {DEFAULT_RSS_FETCH_INTERVAL_MINUTES}")
-print(f"CONFIG LOADED: DEFAULT_TAG_GENERATION_PROMPT: {DEFAULT_TAG_GENERATION_PROMPT}") # Log new prompt
+print(f"CONFIG LOADED: DEFAULT_SUMMARY_PROMPT (first 100 chars): {DEFAULT_SUMMARY_PROMPT[:100]}...")
+print(f"CONFIG LOADED: DEFAULT_TAG_GENERATION_PROMPT: {DEFAULT_TAG_GENERATION_PROMPT}")
+

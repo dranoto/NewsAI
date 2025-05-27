@@ -52,7 +52,7 @@ header .tagline {
     background-color: #34495e; 
     padding: 12px 0;
     text-align: center;
-    margin-bottom: 15px; /* Reduced margin */
+    margin-bottom: 15px; 
 }
 
 .nav-button {
@@ -90,12 +90,12 @@ header .tagline {
     margin-bottom: 20px;
     padding: 10px 0;
     align-items: center;
-    justify-content: center; /* Center search bar */
+    justify-content: center; 
 }
 
 #keyword-search-input {
-    flex-grow: 1; /* Allow input to take available space */
-    max-width: 400px; /* Max width for the search input */
+    flex-grow: 1; 
+    max-width: 400px; 
     padding: 10px 15px;
     border: 1px solid #ccc;
     border-radius: 5px;
@@ -103,8 +103,7 @@ header .tagline {
 }
 
 #keyword-search-btn {
-    /* Uses .nav-button styles, can add specific overrides if needed */
-    background-color: #3498db; /* Blue color for search button */
+    background-color: #3498db; 
     border-color: #3498db;
 }
 #keyword-search-btn:hover {
@@ -114,7 +113,7 @@ header .tagline {
 
 /* Feed Filter Controls */
 .feed-filters {
-    margin-bottom: 10px; /* Adjusted margin */
+    margin-bottom: 10px; 
     display: flex;
     flex-wrap: wrap; 
     gap: 10px; 
@@ -159,7 +158,7 @@ header .tagline {
 }
 .active-tag-filter {
     display: inline-block;
-    background-color: #e74c3c; /* Red to indicate active filter */
+    background-color: #e74c3c; 
     color: white;
     padding: 5px 10px;
     border-radius: 15px;
@@ -216,6 +215,13 @@ main {
     color: #555;
     font-size: 1.1em;
 }
+/* New styles for loading indicator at the bottom for infinite scroll */
+#infinite-scroll-loading-indicator {
+    display: none; /* Hidden by default */
+    padding: 20px;
+    text-align: center;
+}
+
 
 .spinner {
     border: 5px solid #f3f3f3; 
@@ -235,9 +241,33 @@ main {
 /* Results Grid & Article Cards */
 .results-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); 
+    /* grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));  Original */
+    grid-template-columns: 1fr; /* Default to 1 column for mobile-first */
     gap: 25px; 
 }
+
+/* Medium screens and up - 2 columns */
+@media (min-width: 768px) {
+    .results-grid {
+        /* Aim for 2 columns by setting a larger min size for items */
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        /* Or, more explicitly for 2 columns if the container is wide enough: */
+        /* grid-template-columns: repeat(2, 1fr); */
+    }
+}
+
+/* Large screens - allow for 2 or potentially 3 if very wide, but prioritize larger cards */
+@media (min-width: 1200px) {
+    .results-grid {
+        /* This will create 2 columns if each can be at least ~450px, otherwise 1.
+           If the container is very wide (e.g., > 1350px), it might go to 3.
+           Adjust minmax(450px, 1fr) as needed.
+           If strictly 2 columns is desired, use repeat(2, 1fr) and ensure .container max-width supports it well.
+        */
+        grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+    }
+}
+
 
 .article-card {
     background-color: #fff;
@@ -316,12 +346,25 @@ main {
     text-decoration: underline;
 }
 
-.article-card .summary {
+.article-card .summary { /* Now a div */
     font-size: 0.95em;
     color: #555;
     margin-bottom: 15px;
     flex-grow: 1; 
 }
+.article-card .summary p { /* Style paragraphs within summary */
+    margin-top: 0;
+    margin-bottom: 0.5em;
+}
+.article-card .summary ul, .article-card .summary ol {
+    padding-left: 20px;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+}
+.article-card .summary li {
+    margin-bottom: 0.25em;
+}
+
 
 .article-card .error-message {
     font-size: 0.85em;
@@ -355,7 +398,7 @@ main {
     color: white;
     border-color: #1abc9c;
 }
-.article-tag.active-filter-tag { /* Style for tags that are currently active filters */
+.article-tag.active-filter-tag { 
     background-color: #e74c3c;
     color: white;
     border-color: #c0392b;
@@ -365,7 +408,7 @@ main {
 
 /* Chat Button on Article Card */
 .open-chat-modal-btn {
-    background-color: #3498db; /* Blue */
+    background-color: #3498db; 
     color: white;
     padding: 8px 15px;
     border: none;
@@ -373,15 +416,15 @@ main {
     cursor: pointer;
     font-size: 0.9em;
     transition: background-color 0.2s;
-    margin-top: auto; /* Pushes to the bottom if card is flex-column */
-    align-self: flex-start; /* Align to the start of the cross axis */
+    margin-top: auto; 
+    align-self: flex-start; 
 }
 .open-chat-modal-btn:hover {
     background-color: #2980b9;
 }
 
 
-/* Pagination */
+/* Pagination (Will be removed, but keeping styles for now if fallback is needed) */
 .pagination-controls {
     text-align: center;
     margin: 30px 0;
@@ -452,7 +495,7 @@ main {
     max-width: 150px; 
 }
 .form-group textarea {
-    min-height: 80px; /* Adjusted default textarea height */
+    min-height: 80px; 
     resize: vertical; 
 }
 .form-group small {
@@ -545,14 +588,6 @@ main {
     overflow-y: auto;
 }
 
-/* Chat Section (REMOVED from inline card, styles adapted for modal) */
-/* .chat-section { ... } */
-/* .chat-input-group { ... } */
-/* .chat-question-input { ... } */
-/* .chat-ask-button { ... } */
-/* .chat-response { ... } */
-/* .chat-history-q, .chat-history-a, .chat-loading { ... } */
-
 
 /* Footer */
 footer {
@@ -622,24 +657,24 @@ footer {
 }
 
 /* Article Chat Modal Specific Styling */
-.chat-modal-container .modal-content { /* Target chat modal specifically for larger size */
-    max-width: 900px; /* Wider modal for chat */
+.chat-modal-container .modal-content { 
+    max-width: 900px; 
     width: 90%;
 }
 
 .chat-modal-body {
     display: flex;
-    gap: 20px; /* Space between article preview and chat interface */
-    max-height: 70vh; /* Limit overall height */
+    gap: 20px; 
+    max-height: 70vh; 
 }
 
 .chat-modal-article-preview {
-    flex: 1; /* Takes up 1 part of the space */
+    flex: 1; 
     background-color: #f9f9f9;
     padding: 15px;
     border-radius: 6px;
     border: 1px solid #eee;
-    overflow-y: auto; /* Scroll if content is too long */
+    overflow-y: auto; 
     font-size: 0.9em;
 }
 .chat-modal-article-preview h4 {
@@ -648,18 +683,26 @@ footer {
     color: #333;
     font-size: 1.2em;
 }
-.chat-modal-article-preview .article-title {
+.chat-modal-article-preview .article-title { /* Added from your js, ensure it's wrapped if needed */
     font-weight: bold;
     margin-bottom: 8px;
     font-size: 1.1em;
+    display: block; /* Ensure it's a block for margin */
 }
 .chat-modal-article-preview .article-summary-preview {
     font-size: 0.9em;
     color: #555;
-    max-height: 200px; /* Limit summary preview height */
+    max-height: 200px; 
     overflow-y: auto;
     margin-bottom: 10px;
 }
+.chat-modal-article-preview .article-summary-preview p { margin-bottom: 0.5em;}
+.chat-modal-article-preview .article-summary-preview ul,
+.chat-modal-article-preview .article-summary-preview ol {
+    padding-left: 20px; margin-bottom: 0.5em;
+}
+
+
 .chat-modal-article-preview .article-link-modal {
     display: block;
     margin-top: 10px;
@@ -668,40 +711,54 @@ footer {
 
 
 .chat-modal-chat-interface {
-    flex: 2; /* Takes up 2 parts of the space, making chat wider */
+    flex: 2; 
     display: flex;
     flex-direction: column;
 }
 
-#chat-modal-history { /* Reusing .chat-response styles for the history part */
-    flex-grow: 1; /* Allows history to take available vertical space */
+#chat-modal-history { 
+    flex-grow: 1; 
     overflow-y: auto;
     background-color: #f9f9f9;
     padding: 10px;
     border-radius: 4px;
     border: 1px solid #eee;
-    margin-bottom: 10px; /* Space before input */
-    min-height: 200px; /* Ensure it has some initial height */
+    margin-bottom: 10px; 
+    min-height: 200px; 
 }
 
-/* Chat history messages styling (can reuse/adapt from previous .chat-history-q/a) */
 #chat-modal-history .chat-history-q,
 #chat-modal-history .chat-history-a,
 #chat-modal-history .chat-loading {
     margin-bottom: 8px;
-    padding: 8px 12px; /* Slightly more padding */
-    border-radius: 6px; /* Slightly more rounded */
+    padding: 8px 12px; 
+    border-radius: 6px; 
     line-height: 1.5;
-    word-wrap: break-word; /* Ensure long words break */
+    word-wrap: break-word; 
 }
+#chat-modal-history .chat-history-q p, /* Style paragraphs within chat messages */
+#chat-modal-history .chat-history-a p {
+    margin-top: 0;
+    margin-bottom: 0.3em;
+}
+#chat-modal-history .chat-history-q ul, 
+#chat-modal-history .chat-history-a ul,
+#chat-modal-history .chat-history-q ol, 
+#chat-modal-history .chat-history-a ol {
+    padding-left: 15px; /* Less indent for chat */
+    margin-top: 0.3em;
+    margin-bottom: 0.3em;
+}
+
+
 #chat-modal-history .chat-history-q {
-    background-color: #e0efff; /* Lighter blue for user questions */
+    background-color: #e0efff; 
     text-align: right;
-    margin-left: 25%; /* Push to the right */
+    margin-left: 25%; 
 }
 #chat-modal-history .chat-history-a {
-    background-color: #e6ffed; /* Lighter green for AI answers */
-    margin-right: 25%; /* Push to the left */
+    background-color: #e6ffed; 
+    margin-right: 25%; 
 }
 #chat-modal-history .chat-loading {
     color: #777;
@@ -709,24 +766,23 @@ footer {
     text-align: center;
 }
 #chat-modal-history .error-message {
-    background-color: #ffe0e0; /* Light red for errors */
+    background-color: #ffe0e0; 
     color: #c0392b;
     border: 1px solid #f5c6cb;
 }
 
-/* Chat input group within modal (reusing existing classes where possible) */
 .chat-modal-chat-interface .chat-input-group {
     display: flex;
     gap: 10px;
 }
-#chat-modal-question-input { /* Reuses .chat-question-input */
+#chat-modal-question-input { 
     flex-grow: 1;
-    padding: 10px 12px; /* Slightly more padding */
+    padding: 10px 12px; 
     border: 1px solid #ccc;
     border-radius: 4px;
     font-size: 0.95em;
 }
-#chat-modal-ask-button { /* Reuses .chat-ask-button */
+#chat-modal-ask-button { 
     padding: 10px 18px;
     background-color: #2980b9;
     color: white;
@@ -745,6 +801,14 @@ footer {
 
 
 /* Responsive Adjustments */
+@media (max-width: 992px) { /* Adjusted breakpoint for 2-column to 1-column switch */
+    .results-grid {
+        /* This will naturally make it 1 column if 400px is too wide for 2 cols */
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); 
+    }
+}
+
+
 @media (max-width: 768px) {
     header h1 {
         font-size: 2.2em;
@@ -760,14 +824,14 @@ footer {
         justify-content: center;
     }
     .search-container {
-        flex-direction: column; /* Stack search input and button */
+        flex-direction: column; 
         gap: 8px;
     }
     #keyword-search-input {
-        max-width: 100%; /* Full width on smaller screens */
+        max-width: 100%; 
     }
     .results-grid {
-        grid-template-columns: 1fr; 
+        grid-template-columns: 1fr; /* Explicitly 1 column for smaller screens */
     }
     .feed-filters {
         padding: 10px; 
@@ -776,23 +840,23 @@ footer {
         font-size: 0.85em;
         padding: 6px 10px;
     }
-    .modal-content { /* General modal content */
+    .modal-content { 
         width: 90%;
         margin: 10% auto;
     }
     .chat-modal-body {
-        flex-direction: column; /* Stack article preview and chat interface */
+        flex-direction: column; 
         max-height: 80vh;
     }
     .chat-modal-article-preview, .chat-modal-chat-interface {
-        flex: none; /* Reset flex for stacked layout */
+        flex: none; 
         width: 100%;
     }
     .chat-modal-article-preview {
-        max-height: 150px; /* Limit height of preview on small screens */
+        max-height: 150px; 
     }
     #chat-modal-history {
-        min-height: 150px; /* Adjust min height for chat history */
+        min-height: 150px; 
     }
 
 }
@@ -817,11 +881,11 @@ footer {
         padding: 10px 15px;
         font-size: 0.9em;
     }
-     .pagination-controls button {
+     .pagination-controls button { /* Kept for now */
         padding: 8px 12px;
         font-size: 0.9em;
     }
-    .pagination-controls .page-info {
+    .pagination-controls .page-info { /* Kept for now */
         font-size: 0.9em;
     }
     .regenerate-summary-btn {

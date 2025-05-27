@@ -4,11 +4,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- DOM Element References ---
     const resultsContainer = document.getElementById('results-container');
-    const loadingIndicator = document.getElementById('loading-indicator');
+    const loadingIndicator = document.getElementById('loading-indicator'); // For initial load
     const loadingText = document.getElementById('loading-text');
+    const infiniteScrollLoadingIndicator = document.getElementById('infinite-scroll-loading-indicator'); // For infinite scroll
     const refreshNewsBtn = document.getElementById('refresh-news-btn');
-    const paginationControlsTop = document.getElementById('pagination-controls-top');
-    const paginationControlsBottom = document.getElementById('pagination-controls-bottom');
     const feedFilterControls = document.getElementById('feed-filter-controls');
     const activeTagFiltersDisplay = document.getElementById('active-tag-filters-display');
 
@@ -79,6 +78,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     let activeFeedFilterIds = [];
     let activeTagFilterIds = [];
     let currentArticleForChat = null;
+    let isLoadingMoreArticles = false;
+    let currentChatHistory = []; // To store chat history for the current modal session
 
     let currentSummaryPrompt = '';
     let currentChatPrompt = '';
@@ -118,6 +119,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         responseDiv.innerHTML = '<p class="chat-loading">Loading chat history...</p>';
+        currentChatHistory = []; // Reset local history cache
         try {
             const chatHistoryUrl = `${CHAT_API_ENDPOINT_BASE}/article/${articleId}/chat-history`;
             const response = await fetch(chatHistoryUrl);
@@ -127,7 +129,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
             const history = await response.json();
-            renderChatHistoryInModal(responseDiv, history);
+            // Populate currentChatHistory and render
+            history.forEach(item => {
+                currentChatHistory.push({ role: 'user', content: item.question });
+                if (item.answer) {
+                    currentChatHistory.push({ role: 'ai', content: item.answer });
+                }
+            });
+            renderChatHistoryInModal(responseDiv, currentChatHistory);
         } catch (error) {
             console.error('Error fetching chat history for modal:', error);
             responseDiv.innerHTML = '<p class="error-message">Error loading chat history.</p>';
@@ -136,27 +145,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function renderChatHistoryInModal(responseDiv, historyArray) {
         if (!responseDiv) return;
-        responseDiv.innerHTML = '';
+        responseDiv.innerHTML = ''; // Clear previous content
+
         if (!historyArray || historyArray.length === 0) {
-            // responseDiv.innerHTML = '<p>No chat history for this article yet. Ask a question!</p>'; // Keep empty
+            // No history to display
             return;
         }
-        historyArray.forEach(chat => {
-            const qDiv = document.createElement('div');
-            qDiv.classList.add('chat-history-q');
-            // Use marked.parse() for question - though user input is typically not markdown
-            qDiv.innerHTML = `<strong>You:</strong> ${marked.parse(chat.question || "")}`;
-            responseDiv.appendChild(qDiv);
 
-            const aDiv = document.createElement('div');
-            aDiv.classList.add('chat-history-a');
-            // Use marked.parse() for AI answer
-            aDiv.innerHTML = `<strong>AI:</strong> ${marked.parse(chat.answer || "Processing...")}`;
-            if (chat.answer && (chat.answer.startsWith("AI Error:") || chat.answer.startsWith("Error:"))) {
-                aDiv.classList.add('error-message');
+        historyArray.forEach(chatItem => {
+            if (chatItem.role === 'user') {
+                const qDiv = document.createElement('div');
+                qDiv.classList.add('chat-history-q');
+                qDiv.innerHTML = `<strong>You:</strong> ${marked.parse(chatItem.content || "")}`;
+                responseDiv.appendChild(qDiv);
+            } else if (chatItem.role === 'ai') {
+                const aDiv = document.createElement('div');
+                aDiv.classList.add('chat-history-a');
+                aDiv.innerHTML = `<strong>AI:</strong> ${marked.parse(chatItem.content || "Processing...")}`;
+                if (chatItem.content && (chatItem.content.startsWith("AI Error:") || chatItem.content.startsWith("Error:"))) {
+                    aDiv.classList.add('error-message');
+                }
+                responseDiv.appendChild(aDiv);
             }
-            responseDiv.appendChild(aDiv);
         });
+
         if (responseDiv.scrollHeight > responseDiv.clientHeight) {
             responseDiv.scrollTop = responseDiv.scrollHeight;
         }
@@ -234,7 +246,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
             console.log("SCRIPT.JS: initializeAppSettings: No DB feed sources or active tag filters, not calling fetchAndDisplaySummaries initially.");
             if (resultsContainer) resultsContainer.innerHTML = '<p>No RSS feeds configured. Please add some in Setup, or try searching.</p>';
-            updatePaginationUI(0, 0, 0, 0);
              if (feedFilterControls) renderFeedFilterButtons();
         }
         console.log("SCRIPT.JS: initializeAppSettings: Finished.");
@@ -253,7 +264,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (chatPromptInput) chatPromptInput.value = currentChatPrompt;
         if (tagGenerationPromptInput) tagGenerationPromptInput.value = currentTagGenerationPrompt;
 
-        // Display raw prompts in textareas, not rendered HTML
         if (currentSummaryPromptDisplay) currentSummaryPromptDisplay.textContent = currentSummaryPrompt;
         if (currentChatPromptDisplay) currentChatPromptDisplay.textContent = currentChatPrompt;
         if (currentTagGenerationPromptDisplay) currentTagGenerationPromptDisplay.textContent = currentTagGenerationPrompt;
@@ -487,7 +497,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 currentChatPrompt = defaultChatPrompt;
                 currentTagGenerationPrompt = defaultTagGenerationPrompt;
 
-                // Remove custom prompts from localStorage to ensure defaults are used
                 localStorage.removeItem('customSummaryPrompt');
                 localStorage.removeItem('customChatPrompt');
                 localStorage.removeItem('customTagGenerationPrompt');
@@ -549,10 +558,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         allFeedsButton.onclick = () => {
             if (activeFeedFilterIds.length === 0 && activeTagFilterIds.length === 0 && !keywordSearchInput.value.trim()) return;
             activeFeedFilterIds = [];
-            // activeTagFilterIds = []; // Decide if "All Feeds" should clear tag/keyword filters
-            // keywordSearchInput.value = ''; // Optionally clear keyword search
             updateFilterButtonStyles();
             updateActiveTagFiltersUI();
+            currentPage = 1;
             fetchAndDisplaySummaries(false, 1, keywordSearchInput.value.trim() || null);
         };
         feedFilterControls.appendChild(allFeedsButton);
@@ -568,7 +576,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     activeFeedFilterIds = [feed.id];
                 }
                 updateFilterButtonStyles();
-                updateActiveTagFiltersUI(); // Keep tag filters active if desired
+                currentPage = 1;
                 fetchAndDisplaySummaries(false, 1, keywordSearchInput.value.trim() || null);
             };
             feedFilterControls.appendChild(feedButton);
@@ -606,7 +614,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         heading.style.fontWeight = 'bold';
         activeTagFiltersDisplay.appendChild(heading);
 
-        activeTagFilterIds.forEach(tagObj => { // Now expects objects {id, name}
+        activeTagFilterIds.forEach(tagObj => {
             const tagSpan = document.createElement('span');
             tagSpan.classList.add('active-tag-filter');
             tagSpan.textContent = tagObj.name;
@@ -619,6 +627,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 activeTagFilterIds = activeTagFilterIds.filter(t => t.id !== tagObj.id);
                 updateActiveTagFiltersUI();
                 document.querySelectorAll(`.article-tag[data-tag-id='${tagObj.id}']`).forEach(el => el.classList.remove('active-filter-tag'));
+                currentPage = 1;
                 fetchAndDisplaySummaries(false, 1, keywordSearchInput.value.trim() || null);
             };
             tagSpan.appendChild(removeBtn);
@@ -627,35 +636,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
 
-    // --- Fetching and Displaying News Summaries (Uses DB) ---
+    // --- Fetching and Displaying News Summaries ---
     async function fetchAndDisplaySummaries(forceBackendRssRefresh = false, page = 1, keyword = null) {
         console.log(`SCRIPT.JS: fetchAndDisplaySummaries: Page: ${page}, Feed Filters: ${JSON.stringify(activeFeedFilterIds)}, Tag Filters: ${JSON.stringify(activeTagFilterIds.map(t=>t.id))}, Keyword: ${keyword}`);
-        if (!resultsContainer || !loadingIndicator || !loadingText) {
+        if (!resultsContainer || !infiniteScrollLoadingIndicator) {
             console.error("SCRIPT.JS: fetchAndDisplaySummaries: Essential DOM elements missing.");
             return;
         }
 
-        currentPage = page;
-        let activeFilterDisplayParts = [];
-        if (activeFeedFilterIds.length > 0) {
-            activeFilterDisplayParts.push(`Feeds: ${activeFeedFilterIds.map(id => getFeedNameById(id)).join(', ')}`);
-        }
-        if (activeTagFilterIds.length > 0) {
-             activeFilterDisplayParts.push(`Tags: ${activeTagFilterIds.map(t=>t.name).join(', ')}`);
-        }
-        if (keyword) {
-            activeFilterDisplayParts.push(`Keyword: "${keyword}"`);
-        }
-        const activeFilterDisplay = activeFilterDisplayParts.length > 0 ? activeFilterDisplayParts.join(' & ') : "All Articles";
-
-
-        loadingText.textContent = `Fetching page ${currentPage} for ${activeFilterDisplay}...`;
-        loadingIndicator.style.display = 'flex';
-        if (resultsContainer) resultsContainer.innerHTML = '';
         if (page === 1) {
-            updatePaginationUI(0, 0, 0, 0);
+            currentPage = 1;
+            if(resultsContainer) resultsContainer.innerHTML = '';
         }
+        
+        isLoadingMoreArticles = true;
 
+        if (page === 1 && loadingIndicator && loadingText) {
+            let activeFilterDisplayParts = [];
+            if (activeFeedFilterIds.length > 0) activeFilterDisplayParts.push(`Feeds: ${activeFeedFilterIds.map(id => getFeedNameById(id)).join(', ')}`);
+            if (activeTagFilterIds.length > 0) activeFilterDisplayParts.push(`Tags: ${activeTagFilterIds.map(t => t.name).join(', ')}`);
+            if (keyword) activeFilterDisplayParts.push(`Keyword: "${keyword}"`);
+            const activeFilterDisplay = activeFilterDisplayParts.length > 0 ? activeFilterDisplayParts.join(' & ') : "All Articles";
+            loadingText.textContent = `Fetching page ${currentPage} for ${activeFilterDisplay}...`;
+            loadingIndicator.style.display = 'flex';
+        } else {
+            infiniteScrollLoadingIndicator.style.display = 'flex';
+        }
+        
         const payload = {
             page: currentPage,
             page_size: articlesPerPage,
@@ -677,29 +684,51 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ detail: `HTTP error! status: ${response.status}` }));
                 console.error("SCRIPT.JS: fetchAndDisplaySummaries: API Error Data:", errorData);
-                throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+                if(resultsContainer && page === 1) resultsContainer.innerHTML = `<p class="error-message">Error fetching summaries: ${errorData.detail || `HTTP error! status: ${response.status}`}</p>`;
+                else if (resultsContainer) {
+                    const errorP = document.createElement('p');
+                    errorP.classList.add('error-message');
+                    errorP.textContent = `Error fetching more articles: ${errorData.detail || `HTTP error! status: ${response.status}`}`;
+                    resultsContainer.appendChild(errorP);
+                }
+                totalPages = currentPage;
+                return;
             }
             const data = await response.json();
             console.log("SCRIPT.JS: fetchAndDisplaySummaries: Received data:", data);
-            displayResults(data.processed_articles_on_page);
-            totalArticlesAvailable = data.total_articles_available;
+            
+            if (page === 1) totalArticlesAvailable = data.total_articles_available;
             totalPages = data.total_pages;
-            currentPage = data.requested_page;
-            updatePaginationUI(currentPage, totalPages, articlesPerPage, totalArticlesAvailable);
 
-            if (dbFeedSources.length === 0 && data.processed_articles_on_page.length === 0 && activeTagFilterIds.length === 0 && !keyword) {
-                if (resultsContainer) resultsContainer.innerHTML = '<p>No RSS feeds configured. Please add some in the Setup tab or try searching.</p>';
-            } else if (data.processed_articles_on_page.length === 0 && totalArticlesAvailable === 0) {
+            displayResults(data.processed_articles_on_page, page === 1);
+
+            if (page === 1 && data.processed_articles_on_page.length === 0 && totalArticlesAvailable === 0) {
+                 let activeFilterDisplayParts = [];
+                if (activeFeedFilterIds.length > 0) activeFilterDisplayParts.push(`Feeds: ${activeFeedFilterIds.map(id => getFeedNameById(id)).join(', ')}`);
+                if (activeTagFilterIds.length > 0) activeFilterDisplayParts.push(`Tags: ${activeTagFilterIds.map(t => t.name).join(', ')}`);
+                if (keyword) activeFilterDisplayParts.push(`Keyword: "${keyword}"`);
+                const activeFilterDisplay = activeFilterDisplayParts.length > 0 ? activeFilterDisplayParts.join(' & ') : "All Articles";
                 if (resultsContainer) resultsContainer.innerHTML = `<p>No articles found for the current filter (${activeFilterDisplay}).</p>`;
+            } else if (page === 1 && dbFeedSources.length === 0 && activeTagFilterIds.length === 0 && !keyword) {
+                 if (resultsContainer) resultsContainer.innerHTML = '<p>No RSS feeds configured. Please add some in the Setup tab or try searching.</p>';
             }
+
 
         } catch (error) {
             console.error('SCRIPT.JS: Error fetching summaries:', error);
-            if (resultsContainer) resultsContainer.innerHTML = `<p class="error-message">Error fetching summaries: ${error.message}.</p>`;
-            updatePaginationUI(0, 0, 0, 0);
+            if(resultsContainer && page === 1) resultsContainer.innerHTML = `<p class="error-message">Error fetching summaries: ${error.message}.</p>`;
+            else if (resultsContainer) {
+                const errorP = document.createElement('p');
+                errorP.classList.add('error-message');
+                errorP.textContent = `Error fetching more articles: ${error.message}`;
+                resultsContainer.appendChild(errorP);
+            }
+            totalPages = currentPage;
         }
         finally {
-            loadingIndicator.style.display = 'none';
+            isLoadingMoreArticles = false;
+            if(loadingIndicator) loadingIndicator.style.display = 'none';
+            if(infiniteScrollLoadingIndicator) infiniteScrollLoadingIndicator.style.display = 'none';
             console.log("SCRIPT.JS: fetchAndDisplaySummaries: Finished.");
         }
     }
@@ -709,7 +738,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!confirm("This will ask the backend to check all RSS feeds for new articles. Continue?")) return;
 
             loadingText.textContent = 'Requesting backend to refresh RSS feeds...';
-            loadingIndicator.style.display = 'flex';
+            if(loadingIndicator) loadingIndicator.style.display = 'flex';
             try {
                 const response = await fetch('/api/trigger-rss-refresh', { method: 'POST' });
                 if (!response.ok) {
@@ -719,65 +748,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const result = await response.json();
                 alert(result.message || "RSS refresh initiated. New articles will appear after processing.");
                 setTimeout(() => {
-                    fetchAndDisplaySummaries(false, currentPage, keywordSearchInput.value.trim() || null);
+                    currentPage = 1;
+                    fetchAndDisplaySummaries(false, 1, keywordSearchInput.value.trim() || null);
                 }, 3000);
             } catch (error) {
                 console.error("Error triggering RSS refresh:", error);
                 alert(`Error: ${error.message}`);
             } finally {
-                loadingIndicator.style.display = 'none';
+                if(loadingIndicator) loadingIndicator.style.display = 'none';
             }
         });
     }
 
-    // --- UI Update Functions (Pagination, Results Display) ---
-    function updatePaginationUI(currentPg, totalPgs, pgSize, totalItems) {
-        const renderControls = (container) => {
-            if (!container) return;
-            container.innerHTML = '';
-            if (totalPgs <= 0) {
-                 if (totalItems > 0 && totalPgs === 1) {
-                    const pageInfo = document.createElement('span');
-                    pageInfo.classList.add('page-info');
-                    pageInfo.textContent = `Page ${currentPg} of ${totalPgs} (${totalItems} articles)`;
-                    container.appendChild(pageInfo);
-                 }
-                return;
-            }
 
-            const prevButton = document.createElement('button');
-            prevButton.textContent = '‹ Previous';
-            prevButton.disabled = currentPg <= 1;
-            prevButton.onclick = () => fetchAndDisplaySummaries(false, currentPg - 1, keywordSearchInput.value.trim() || null);
-            container.appendChild(prevButton);
-
-            const pageInfo = document.createElement('span');
-            pageInfo.classList.add('page-info');
-            pageInfo.textContent = `Page ${currentPg} of ${totalPgs} (${totalItems} articles)`;
-            container.appendChild(pageInfo);
-
-            const nextButton = document.createElement('button');
-            nextButton.textContent = 'Next ›';
-            nextButton.disabled = currentPg >= totalPgs;
-            nextButton.onclick = () => fetchAndDisplaySummaries(false, currentPg + 1, keywordSearchInput.value.trim() || null);
-            container.appendChild(nextButton);
-        };
-        renderControls(paginationControlsTop);
-        renderControls(paginationControlsBottom);
-    }
-
-    function displayResults(articles) {
-        console.log("SCRIPT.JS: displayResults: Called with articles:", articles);
+    function displayResults(articles, clearPrevious = true) {
+        console.log("SCRIPT.JS: displayResults: Called with articles:", articles, "Clear:", clearPrevious);
         if (!resultsContainer) {
             console.error("SCRIPT.JS: displayResults: resultsContainer is null!");
             return;
         }
-
-        if (!articles || articles.length === 0) {
-            console.log("SCRIPT.JS: displayResults: No articles to display.");
-            return;
+        if (clearPrevious) {
+            resultsContainer.innerHTML = '';
         }
 
+        if (!articles || articles.length === 0) {
+            console.log("SCRIPT.JS: displayResults: No new articles to display.");
+             if (clearPrevious && currentPage === 1 && !keywordSearchInput.value.trim() && activeTagFilterIds.length === 0 && activeFeedFilterIds.length === 0) {
+            }
+            return;
+        }
 
         articles.forEach((article, index) => {
             const uniqueArticleCardId = `article-db-${article.id}`;
@@ -799,10 +798,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (article.url) { const l = document.createElement('a'); l.href = article.url; l.textContent = 'Read Full Article'; l.classList.add('source-link'); l.target = '_blank'; l.rel = 'noopener noreferrer'; articleCard.appendChild(l); }
 
-            const summaryP = document.createElement('div'); // Changed to div for innerHTML
+            const summaryP = document.createElement('div');
             summaryP.classList.add('summary');
             summaryP.setAttribute('id', `summary-text-${article.id}`);
-            summaryP.innerHTML = marked.parse(article.summary || "No summary available."); // Use marked.parse()
+            summaryP.innerHTML = marked.parse(article.summary || "No summary available.");
             articleCard.appendChild(summaryP);
 
             if (article.tags && article.tags.length > 0) {
@@ -830,9 +829,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                             tagEl.classList.add('active-filter-tag');
                         }
                         activeFeedFilterIds = [];
+                        keywordSearchInput.value = '';
                         updateFilterButtonStyles();
                         updateActiveTagFiltersUI();
-                        fetchAndDisplaySummaries(false, 1, keywordSearchInput.value.trim() || null);
+                        currentPage = 1;
+                        fetchAndDisplaySummaries(false, 1);
                     };
                     tagsContainer.appendChild(tagEl);
                 });
@@ -843,7 +844,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (article.error_message && !article.summary) {
                 const err = document.createElement('p');
                 err.classList.add('error-message');
-                err.innerHTML = marked.parse(article.error_message); // Also parse error messages if they might contain markdown
+                err.innerHTML = marked.parse(article.error_message);
                 articleCard.appendChild(err);
             }
 
@@ -909,7 +910,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            summaryElement.innerHTML = marked.parse("Regenerating summary..."); // Use innerHTML
+            summaryElement.innerHTML = marked.parse("Regenerating summary...");
             if (regenButton) regenButton.disabled = true;
 
             try {
@@ -924,13 +925,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     throw new Error(errorData.detail || "Failed to regenerate summary.");
                 }
                 const updatedArticle = await response.json();
-                summaryElement.innerHTML = marked.parse(updatedArticle.summary || "Summary regenerated, but no content returned."); // Use innerHTML
+                summaryElement.innerHTML = marked.parse(updatedArticle.summary || "Summary regenerated, but no content returned.");
                 if (updatedArticle.error_message) {
-                    summaryElement.innerHTML = marked.parse(`Error: ${updatedArticle.error_message}`); // Use innerHTML
+                    summaryElement.innerHTML = marked.parse(`Error: ${updatedArticle.error_message}`);
                 }
             } catch (error) {
                 console.error("Error regenerating summary:", error);
-                summaryElement.innerHTML = marked.parse(`Error: ${error.message}`); // Use innerHTML
+                summaryElement.innerHTML = marked.parse(`Error: ${error.message}`);
                 alert(`Failed to regenerate summary: ${error.message}`);
             } finally {
                 if (regenButton) regenButton.disabled = false;
@@ -943,15 +944,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     function openArticleChatModal(articleData) {
         if (!articleChatModal || !chatModalArticlePreviewContent || !chatModalHistory || !chatModalQuestionInput) return;
         currentArticleForChat = articleData;
+        currentChatHistory = []; // Reset history for new chat session
 
         chatModalArticlePreviewContent.innerHTML = `
             <h4>${articleData.title || 'No Title'}</h4>
             <div class="article-summary-preview">${marked.parse(articleData.summary || 'No summary available.')}</div>
             <a href="${articleData.url}" target="_blank" rel="noopener noreferrer" class="article-link-modal">Read Full Article</a>
-        `; // Use marked.parse() for summary preview
+        `;
 
         chatModalHistory.innerHTML = '';
-        fetchChatHistoryForModal(articleData.id, chatModalHistory);
+        fetchChatHistoryForModal(articleData.id, chatModalHistory); // This will populate currentChatHistory and render
 
         articleChatModal.style.display = "block";
         chatModalQuestionInput.focus();
@@ -960,6 +962,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     function closeArticleChatModal() {
         if (articleChatModal) articleChatModal.style.display = "none";
         currentArticleForChat = null;
+        currentChatHistory = []; // Clear history on close
     }
 
     if (closeArticleChatModalBtn) {
@@ -979,12 +982,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const question = chatModalQuestionInput.value.trim();
         if (!question) { alert('Please enter a question.'); return; }
 
-        const qDiv = document.createElement('div');
-        qDiv.classList.add('chat-history-q');
-        qDiv.innerHTML = `<strong>You:</strong> ${marked.parse(question)}`; // Use marked.parse()
-        chatModalHistory.appendChild(qDiv);
+        // Add user's question to local history and render
+        currentChatHistory.push({ role: 'user', content: question });
+        renderChatHistoryInModal(chatModalHistory, currentChatHistory); // Re-render with new question
 
-        const loadingChatP = document.createElement('p');
+        const loadingChatP = document.createElement('p'); // Temporary loading indicator
         loadingChatP.classList.add('chat-loading');
         loadingChatP.textContent = 'AI is thinking...';
         chatModalHistory.appendChild(loadingChatP);
@@ -998,7 +1000,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             const payload = {
                 article_id: articleDbId,
                 question: question,
-                chat_prompt: (currentChatPrompt !== defaultChatPrompt) ? currentChatPrompt : null
+                chat_prompt: (currentChatPrompt !== defaultChatPrompt) ? currentChatPrompt : null,
+                // Send the current conversation history (excluding the latest user question already rendered)
+                // The backend will expect a list of {'role': 'user'/'ai', 'content': '...'}
+                // We send the history *before* the current question.
+                // The last item in currentChatHistory is the user's current question.
+                // So, we send all items *except* the last one.
+                // However, it's simpler to just send the whole history and let backend decide.
+                // For now, let's send the history up to the point *before* this question.
+                // The backend will need to be updated to receive and use this.
+                chat_history: currentChatHistory.slice(0, -1) // Send history *before* the current question
             };
             const response = await fetch(`${CHAT_API_ENDPOINT_BASE}/chat-with-article`, {
                 method: 'POST',
@@ -1015,22 +1026,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             const data = await response.json();
             const answer = data.answer || "No answer received.";
 
-            const aDiv = document.createElement('div');
-            aDiv.classList.add('chat-history-a');
-            aDiv.innerHTML = `<strong>AI:</strong> ${marked.parse(answer)}`; // Use marked.parse()
-            if (data.error_message || answer.startsWith("Error:")) {
-                aDiv.classList.add('error-message');
-                // For error messages, we might not want to parse as markdown if they are plain text errors
-                aDiv.innerHTML = `<strong>AI:</strong> ${marked.parse(data.error_message || answer)}`;
-            }
-            chatModalHistory.appendChild(aDiv);
+            // Add AI's answer to local history and render
+            currentChatHistory.push({ role: 'ai', content: answer });
+            renderChatHistoryInModal(chatModalHistory, currentChatHistory); // Re-render with new answer
+
 
         } catch (error) {
             console.error('Error during modal article chat:', error);
-            const errorDiv = document.createElement('div');
-            errorDiv.classList.add('chat-history-a', 'error-message');
-            errorDiv.innerHTML = `<strong>AI Error:</strong> ${marked.parse(error.message)}`; // Use marked.parse()
-            chatModalHistory.appendChild(errorDiv);
+            // Add error to local history and render
+            currentChatHistory.push({ role: 'ai', content: `AI Error: ${error.message}` });
+            renderChatHistoryInModal(chatModalHistory, currentChatHistory);
         } finally {
             chatModalQuestionInput.disabled = false;
             chatModalAskButton.disabled = false;
@@ -1077,6 +1082,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const result = await response.json();
                 alert(result.message || "Old data cleanup process completed.");
                 if (deleteStatusMessage) deleteStatusMessage.textContent = result.message || "Cleanup complete.";
+                currentPage = 1;
                 fetchAndDisplaySummaries(false, 1, keywordSearchInput.value.trim() || null);
             } catch (error) {
                 console.error("Error deleting old data:", error);
@@ -1090,12 +1096,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (keywordSearchBtn) {
         keywordSearchBtn.addEventListener('click', () => {
             const searchTerm = keywordSearchInput.value.trim();
-            // No need to check if searchTerm is empty here, fetchAndDisplaySummaries will handle null
             console.log("SCRIPT.JS: Keyword search initiated for:", searchTerm || "all articles");
             activeFeedFilterIds = []; 
             activeTagFilterIds = [];
             updateFilterButtonStyles();
             updateActiveTagFiltersUI();
+            currentPage = 1;
             fetchAndDisplaySummaries(false, 1, searchTerm || null);
         });
     }
@@ -1150,6 +1156,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error("SCRIPT.JS: navSetupBtn not found!");
     }
 
+    // --- Infinite Scroll Setup ---
+    window.addEventListener('scroll', () => {
+        if ((window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 200) && !isLoadingMoreArticles && currentPage < totalPages) {
+            console.log("SCRIPT.JS: Reached bottom of page, loading more articles...");
+            currentPage++;
+            fetchAndDisplaySummaries(false, currentPage, keywordSearchInput.value.trim() || null);
+        }
+    });
+    
     // --- Final Initialization Call ---
     console.log("SCRIPT.JS: About to call initializeAppSettings...");
     await initializeAppSettings();
