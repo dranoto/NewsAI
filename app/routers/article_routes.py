@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session as SQLAlchemySession, joinedload
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_, func as sql_func 
 from typing import List, Dict, Any, Optional
-from datetime import datetime 
+from datetime import datetime, timezone, timedelta 
 
 from langchain_core.documents import Document as LangchainDocument
 from langchain_google_genai import GoogleGenerativeAI 
@@ -403,7 +403,7 @@ async def check_for_new_articles(
         return NewArticleCheckResponse(new_articles_available=False, latest_article_timestamp=None, article_count=0)
 
     if since_timestamp.tzinfo is None: # Ensure timezone awareness for comparison
-        since_timestamp = since_timestamp.replace(tzinfo=datetime.timezone.utc) 
+        since_timestamp = since_timestamp.replace(tzinfo=timezone.utc) 
 
     new_articles_query = db.query(database.Article).filter(database.Article.created_at > since_timestamp)
     count_new_articles = new_articles_query.count()

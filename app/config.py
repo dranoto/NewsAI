@@ -94,9 +94,7 @@ Structure: Ensure short sentences and the defined format enhance scannability.
 Markdown: Use **bold** and *italics* strategically to guide the eye, not overwhelm it.
 Storytelling: Weave a clear, engaging narrative within the paragraph.
 Tone: Maintain an objective, professional, yet compelling tone.
-Edge Case Handling:
 
-If the article is very short, trivial, an error page, or lacks substantive information, respond only with: *Article content insufficient for summary.*
 Article:{text}
 Summary:""")
 
