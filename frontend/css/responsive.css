@@ -1,0 +1,121 @@
+/* static_frontend/css/responsive.css */
+
+/* Medium screens and up - 2 columns for article grid */
+@media (min-width: 768px) {
+    .results-grid {
+        /* Aim for 2 columns by setting a larger min size for items */
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    }
+}
+
+/* Large screens - allow for 2 or potentially 3 if very wide for article grid */
+@media (min-width: 1200px) {
+    .results-grid {
+        grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+    }
+}
+
+/* General Responsive Adjustments for smaller screens */
+@media (max-width: 992px) { 
+    .results-grid {
+        /* This will naturally make it 1 column if 350px is too wide for 2 cols */
+        /* Or more explicitly for 1 column if needed: grid-template-columns: 1fr; */
+         grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); 
+    }
+}
+
+@media (max-width: 768px) {
+    header h1 {
+        font-size: 2.2em;
+    }
+    .nav-button {
+        padding: 8px 12px;
+        margin: 5px; 
+        font-size: 0.9em;
+    }
+    .main-nav { /* Allow nav buttons to wrap */
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    .search-container {
+        flex-direction: column; 
+        gap: 8px;
+    }
+    #keyword-search-input { /* Ensure search input takes full width in column layout */
+        max-width: 100%; 
+        width: 100%;
+    }
+    .results-grid {
+        grid-template-columns: 1fr; /* Explicitly 1 column for smaller screens */
+    }
+    .feed-filters { /* Adjust padding for smaller screens */
+        padding-left: 10px; 
+        padding-right: 10px;
+    }
+    .feed-filters button {
+        font-size: 0.85em;
+        padding: 6px 10px;
+    }
+    .modal-content { /* Modals take more width on smaller screens */
+        width: 90%;
+        margin: 10% auto; /* Adjust top margin */
+    }
+    .chat-modal-body { /* Stack chat preview and interface vertically */
+        flex-direction: column; 
+        max-height: 80vh;
+    }
+    .chat-modal-article-preview, .chat-modal-chat-interface {
+        flex: none; /* Reset flex sizing */
+        width: 100%;
+    }
+    .chat-modal-article-preview {
+        max-height: 150px; /* Limit preview height on small screens */
+    }
+    #chat-modal-history {
+        min-height: 150px; 
+    }
+}
+
+@media (max-width: 480px) {
+    header h1 {
+        font-size: 1.8em;
+    }
+    header .tagline {
+        font-size: 0.9em;
+    }
+    .content-section {
+        padding: 15px;
+    }
+    .form-group input[type="text"],
+    .form-group input[type="url"],
+    .form-group input[type="number"],
+    .form-group input[type="search"],
+    .form-group textarea {
+        padding: 10px;
+    }
+    .button, /* If generic .button class is used */
+    .submit-button, 
+    .action-button,
+    .nav-button { /* Adjust padding for all button types */
+        padding: 10px 15px;
+        font-size: 0.9em;
+    }
+    .regenerate-summary-btn { /* Smaller regenerate button */
+        width: 28px;
+        height: 28px;
+        line-height: 28px;
+        font-size: 14px;
+    }
+    .article-card h3 {
+        font-size: 1.3em;
+    }
+    .open-chat-modal-btn {
+        font-size: 0.85em;
+        padding: 7px 12px;
+    }
+    .article-tag {
+        font-size: 0.75em;
+        padding: 4px 8px;
+    }
+}

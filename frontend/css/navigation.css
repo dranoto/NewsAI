@@ -1,0 +1,105 @@
+/* static_frontend/css/navigation.css */
+
+/* Main Navigation */
+.main-nav { /* This is a .container */
+    background-color: #34495e; 
+    padding-top: 12px;
+    padding-bottom: 12px;
+    text-align: center;
+    margin-bottom: 15px; 
+}
+
+.nav-button {
+    background-color: transparent;
+    color: #ecf0f1;
+    border: 1px solid #ecf0f1;
+    padding: 10px 20px;
+    margin: 0 8px;
+    cursor: pointer;
+    border-radius: 5px;
+    font-size: 1em;
+    transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+}
+
+.nav-button.active,
+.nav-button:hover {
+    background-color: #1abc9c; 
+    color: #fff;
+    border-color: #1abc9c;
+}
+
+.nav-button.refresh-button {
+    background-color: #e74c3c; 
+    border-color: #e74c3c;
+    color: white;
+}
+.nav-button.refresh-button:hover {
+    background-color: #c0392b; 
+    border-color: #c0392b;
+}
+
+/* Feed Filter Controls */
+.feed-filters { /* This is a .container */
+    margin-bottom: 10px; 
+    display: flex;
+    flex-wrap: wrap; 
+    gap: 10px; 
+    justify-content: center; 
+    padding-top: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ddd; 
+}
+
+.feed-filters button { /* Styles for buttons specifically within .feed-filters */
+    padding: 8px 15px;
+    border: 1px solid #bdc3c7; 
+    background-color: #fff; 
+    color: #2c3e50; 
+    cursor: pointer;
+    border-radius: 20px; 
+    font-size: 0.9em;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.feed-filters button.active {
+    background-color: #16a085; 
+    color: white;
+    border-color: #16a085;
+    font-weight: bold;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.feed-filters button:hover:not(.active) {
+    background-color: #ecf0f1; 
+    border-color: #95a5a6; 
+    transform: translateY(-1px); 
+}
+
+/* Active Tag Filters Display */
+.tag-filters-display { /* This is a .container */
+    /* margin-bottom: 15px; already set in HTML style attribute, can be moved here */
+    padding-top: 8px;
+    padding-bottom: 8px;
+    text-align: center;
+    font-size: 0.9em;
+    color: #555;
+}
+.active-tag-filter {
+    display: inline-block;
+    background-color: #e74c3c; 
+    color: white;
+    padding: 5px 10px;
+    border-radius: 15px;
+    margin: 0 5px 5px 0; /* Add bottom margin for wrapping */
+    font-size: 0.85em;
+}
+.active-tag-filter .remove-tag-filter-btn {
+    margin-left: 8px;
+    color: #fdebd0;
+    cursor: pointer;
+    font-weight: bold;
+}
+.active-tag-filter .remove-tag-filter-btn:hover {
+    color: white;
+}

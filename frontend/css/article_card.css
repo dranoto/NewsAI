@@ -1,0 +1,148 @@
+/* static_frontend/css/article_card.css */
+
+/* Results Grid */
+.results-grid {
+    display: grid;
+    grid-template-columns: 1fr; /* Default to 1 column for mobile-first */
+    gap: 25px; 
+}
+
+/* Article Cards */
+.article-card {
+    background-color: #fff;
+    border: 1px solid #e0e0e0; 
+    border-radius: 8px; 
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05); 
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    position: relative; /* For absolute positioning of regenerate button */
+}
+.article-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+/* Regenerate Summary Button on Card */
+.regenerate-summary-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: #f39c12; 
+    color: white;
+    border: none;
+    border-radius: 50%; 
+    width: 30px;
+    height: 30px;
+    font-size: 16px; 
+    line-height: 30px; /* Center icon vertically */
+    text-align: center;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: background-color 0.2s;
+    padding: 0; /* Remove default button padding */
+}
+.regenerate-summary-btn:hover {
+    background-color: #e67e22; 
+}
+.regenerate-summary-btn::before {
+    content: "\21BB"; /* Refresh symbol */
+}
+
+.article-card h3 { /* Base styles in base.css */
+    font-size: 1.5em; 
+    margin-bottom: 10px;
+    padding-right: 40px; /* Space for the regenerate button */
+}
+
+.article-meta-info {
+    font-size: 0.85em;
+    color: #7f8c8d; 
+    margin-bottom: 12px;
+    display: flex;
+    flex-wrap: wrap; 
+    gap: 15px; 
+}
+.article-meta-info span { /* Individual meta items */
+    display: inline-block; 
+}
+
+.article-card .source-link { /* Base 'a' styles in base.css */
+    display: inline-block; 
+    margin-bottom: 12px;
+    font-weight: bold;
+}
+
+.article-card .summary { /* This is a div */
+    font-size: 0.95em;
+    color: #555;
+    margin-bottom: 15px;
+    flex-grow: 1; /* Allows summary to take available space */
+}
+.article-card .summary p { /* Style paragraphs within summary div */
+    margin-top: 0;
+    margin-bottom: 0.5em;
+}
+.article-card .summary ul, .article-card .summary ol { /* Base list styles in base.css */
+    /* Add specific overrides if needed */
+}
+.article-card .summary li { /* Base list item styles in base.css */
+    /* Add specific overrides if needed */
+}
+
+.article-card .error-message { /* Error message specific to an article card */
+    font-size: 0.85em;
+    color: #c0392b; 
+    background-color: #fadbd8; 
+    padding: 8px;
+    border-radius: 4px;
+    margin-top: 10px;
+}
+
+/* Tags Styling on Card */
+.article-tags-container {
+    margin-top: 10px;
+    margin-bottom: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.article-tag {
+    background-color: #ecf0f1;
+    color: #34495e;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 0.8em;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+    border: 1px solid #bdc3c7;
+}
+.article-tag:hover {
+    background-color: #1abc9c;
+    color: white;
+    border-color: #1abc9c;
+}
+.article-tag.active-filter-tag { /* When this tag is an active global filter */
+    background-color: #e74c3c;
+    color: white;
+    border-color: #c0392b;
+    font-weight: bold;
+}
+
+/* Chat Button on Article Card */
+.open-chat-modal-btn { /* General button styles can be in forms.css, specific overrides here */
+    background-color: #3498db; 
+    color: white;
+    padding: 8px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.2s;
+    margin-top: auto; /* Pushes button to the bottom of the card if card is flex column */
+    align-self: flex-start; /* Aligns to the start of the cross axis */
+}
+.open-chat-modal-btn:hover {
+    background-color: #2980b9;
+}

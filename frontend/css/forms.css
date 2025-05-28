@@ -1,0 +1,114 @@
+/* static_frontend/css/forms.css */
+
+.form-group {
+    margin-bottom: 18px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: bold;
+    color: #555;
+}
+
+.form-group input[type="text"],
+.form-group input[type="url"],
+.form-group input[type="number"],
+.form-group input[type="search"], /* Added for keyword search */
+.form-group textarea { 
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    /* box-sizing: border-box; -- Handled by global reset in base.css */
+    font-size: 1em;
+    font-family: 'Roboto', sans-serif; 
+}
+
+/* Specific width for number inputs if desired, e.g., in setup */
+.setup-block .form-group input[type="number"] { /* More specific selector */
+    max-width: 150px; 
+}
+/* Ensure keyword search input uses these styles if it's inside a form-group */
+#keyword-search-input { /* If it's not in a form-group, it might need separate styling or this rule adjusted */
+    padding: 10px 15px; /* From original search.css */
+    font-size: 1em; /* From original search.css */
+}
+
+
+.form-group textarea {
+    min-height: 80px; 
+    resize: vertical; 
+}
+
+.form-group small { /* Helper text below form inputs */
+    display: block;
+    font-size: 0.85em;
+    color: #777;
+    margin-top: 4px;
+}
+
+/* General Button Styles */
+.button, /* A generic button class if needed */
+.submit-button, 
+.action-button,
+.nav-button { /* Include nav-button here if it shares base styles */
+    padding: 12px 20px; /* Default padding */
+    border: 1px solid transparent; /* Default border */
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1em;
+    text-align: center;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+    /* Add other shared button properties like font-family if needed */
+}
+
+/* Specific Button Types */
+.submit-button { /* For primary form submission */
+    background-color: #1abc9c; 
+    color: white;
+    border-color: #1abc9c;
+}
+.submit-button:hover {
+    background-color: #16a085; 
+    border-color: #16a085;
+}
+
+.action-button { /* For secondary actions */
+    background-color: #95a5a6; 
+    color: white;
+    border-color: #95a5a6;
+    /* margin-top: 10px; -- Contextual, apply where needed or use utility classes */
+}
+.action-button:hover {
+    background-color: #7f8c8d;
+    border-color: #7f8c8d;
+}
+
+.action-button.clear-all { /* Specific action button variant */
+    background-color: #e74c3c;
+    border-color: #e74c3c;
+}
+.action-button.clear-all:hover {
+    background-color: #c0392b;
+    border-color: #c0392b;
+}
+
+/* Small utility buttons (like edit/remove in feed list) */
+.button-small {
+    padding: 5px 10px;
+    font-size: 0.8em;
+    border-radius: 3px;
+}
+.button-danger { /* For destructive actions like remove */
+    background-color: #e74c3c;
+    color: white;
+    border-color: #e74c3c;
+}
+.button-danger:hover {
+    background-color: #c0392b;
+    border-color: #c0392b;
+}
+
+/* Ensure nav-button specifics from navigation.css take precedence if conflicting */
+/* For example, .nav-button has specific background, color, border */

@@ -1,0 +1,98 @@
+/* static_frontend/css/setup_page.css */
+
+.setup-block {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #ecf0f1; 
+}
+.setup-block:last-child {
+    border-bottom: none;
+}
+
+.setup-block h3 { /* Base h3 styles in base.css */
+    /* Add specific overrides if needed */
+}
+.setup-block h4 {
+    margin-top: 20px; /* Space above subheadings like "Current RSS Feeds" */
+    margin-bottom: 10px;
+    color: #555;
+    font-size: 1.1em;
+}
+
+.setup-block p { /* Paragraphs within setup blocks */
+    margin-bottom: 10px; /* Adjust spacing for setup context */
+    font-size: 0.95em;
+}
+.setup-block p > span { /* For displaying current values like articles per page */
+    font-weight: bold;
+    color: #16a085;
+}
+
+
+/* RSS Feeds List in Setup */
+#rss-feeds-list {
+    list-style-type: none;
+    padding-left: 0;
+    margin-top: 10px;
+}
+.feed-list-item { /* Replaces #rss-feeds-list li for better specificity control */
+    background-color: #ecf0f1; 
+    padding: 15px; /* Increased padding */
+    margin-bottom: 10px; /* Increased margin */
+    border-radius: 6px; /* Slightly more rounded */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap; 
+    border: 1px solid #d5dbdb; /* Added border */
+}
+.feed-list-item .feed-details {
+    flex-grow: 1;
+    margin-right: 15px; /* More space before controls */
+    font-size: 0.9em;
+    line-height: 1.5;
+}
+.feed-list-item .feed-details strong {
+    font-size: 1.1em; /* Make feed name slightly larger */
+    color: #2c3e50;
+    display: block; /* Ensure it takes its own line */
+    margin-bottom: 4px;
+}
+.feed-list-item .feed-details .feed-url-display {
+    color: #7f8c8d;
+    word-break: break-all; /* Ensure long URLs wrap */
+}
+
+.feed-list-item .feed-controls {
+    display: flex;
+    gap: 8px; /* Space between edit and remove buttons */
+    flex-shrink: 0; /* Prevent controls from shrinking too much */
+}
+
+/* Edit/Remove buttons in feed list - use general button utility classes from forms.css */
+.edit-feed-btn { /* Inherits .button-small */
+    background-color: #3498db; 
+    color: white;
+    border-color: #3498db;
+}
+.edit-feed-btn:hover {
+    background-color: #2980b9;
+    border-color: #2980b9;
+}
+.remove-feed-btn { /* Inherits .button-small .button-danger */
+    /* Styles are from forms.css */
+}
+
+
+/* Prompt Preview Styling in Setup */
+.prompt-preview { /* Base pre styles in base.css */
+    /* Add specific overrides if needed, e.g., different background or border for setup */
+    background-color: #eaf2f8; /* Lighter blueish background */
+    border-color: #aed6f1; /* Matching border */
+}
+
+/* Data Management Section */
+#delete-status-message {
+    margin-top:10px;
+    font-style: italic;
+}

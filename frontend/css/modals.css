@@ -1,0 +1,194 @@
+/* static_frontend/css/modals.css */
+
+/* Modal Styling (General) */
+.modal {
+    display: none; 
+    position: fixed; 
+    z-index: 1000; 
+    left: 0;
+    top: 0;
+    width: 100%; 
+    height: 100%; 
+    overflow: auto; 
+    background-color: rgba(0,0,0,0.5); 
+    padding-top: 60px; /* Space from top for modal to appear */
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 5% auto; 
+    padding: 25px;
+    border: 1px solid #888;
+    width: 80%; 
+    max-width: 600px; /* Default max-width for modals */
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    position: relative;
+}
+
+.close-button {
+    color: #aaa;
+    /* float: right; -- avoid float for positioning */
+    font-size: 28px;
+    font-weight: bold;
+    position: absolute; 
+    top: 10px;
+    right: 20px;
+    line-height: 1; /* Ensure consistent vertical alignment */
+    padding: 0; /* Remove any default padding */
+    background: none; /* Remove default button background */
+    border: none; /* Remove default button border */
+    cursor: pointer;
+}
+
+.close-button:hover,
+.close-button:focus {
+    color: black;
+    text-decoration: none;
+}
+
+.modal h3 { /* Base h3 styles in base.css */
+    margin-top: 0; /* Ensure no top margin */
+    /* color: #333; -- can be inherited or overridden */
+}
+.modal p { /* Base p styles in base.css */
+    font-size: 0.95em;
+    color: #555;
+    margin-bottom: 15px;
+}
+.modal .form-group textarea { /* Specific to textareas in modals, if different from general forms */
+    min-height: 80px; 
+}
+
+/* Article Chat Modal Specific Styling */
+.chat-modal-container .modal-content { /* Override for chat modal */
+    max-width: 900px; 
+    width: 90%; /* Responsive width */
+}
+
+.chat-modal-body {
+    display: flex;
+    gap: 20px; 
+    max-height: 70vh; /* Limit height to allow scrolling within modal parts */
+}
+
+.chat-modal-article-preview {
+    flex: 1; /* Takes 1 part of the space */
+    background-color: #f9f9f9;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid #eee;
+    overflow-y: auto; 
+    font-size: 0.9em;
+}
+.chat-modal-article-preview h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #333;
+    font-size: 1.2em;
+}
+.chat-modal-article-preview .article-summary-preview {
+    font-size: 0.9em;
+    color: #555;
+    max-height: 200px; /* Limit summary preview height */
+    overflow-y: auto;
+    margin-bottom: 10px;
+}
+.chat-modal-article-preview .article-summary-preview p { margin-bottom: 0.5em;}
+.chat-modal-article-preview .article-summary-preview ul,
+.chat-modal-article-preview .article-summary-preview ol {
+    padding-left: 20px; margin-bottom: 0.5em;
+}
+.chat-modal-article-preview .article-link-modal { /* Base 'a' styles in base.css */
+    display: block;
+    margin-top: 10px;
+    font-size: 0.85em;
+}
+
+.chat-modal-chat-interface {
+    flex: 2; /* Takes 2 parts of the space */
+    display: flex;
+    flex-direction: column;
+}
+
+#chat-modal-history { 
+    flex-grow: 1; 
+    overflow-y: auto;
+    background-color: #f9f9f9;
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #eee;
+    margin-bottom: 10px; 
+    min-height: 200px; /* Ensure it has some height */
+}
+
+#chat-modal-history .chat-history-q,
+#chat-modal-history .chat-history-a,
+#chat-modal-history .chat-loading {
+    margin-bottom: 8px;
+    padding: 8px 12px; 
+    border-radius: 6px; 
+    line-height: 1.5;
+    word-wrap: break-word; 
+}
+#chat-modal-history .chat-history-q p, 
+#chat-modal-history .chat-history-a p {
+    margin-top: 0;
+    margin-bottom: 0.3em;
+}
+#chat-modal-history .chat-history-q ul, 
+#chat-modal-history .chat-history-a ul,
+#chat-modal-history .chat-history-q ol, 
+#chat-modal-history .chat-history-a ol {
+    padding-left: 15px; 
+    margin-top: 0.3em;
+    margin-bottom: 0.3em;
+}
+
+#chat-modal-history .chat-history-q { /* User question */
+    background-color: #e0efff; 
+    text-align: right;
+    margin-left: 25%; 
+}
+#chat-modal-history .chat-history-a { /* AI answer */
+    background-color: #e6ffed; 
+    margin-right: 25%; 
+}
+#chat-modal-history .chat-loading {
+    color: #777;
+    font-style: italic;
+    text-align: center;
+}
+#chat-modal-history .error-message { /* For AI errors displayed in chat */
+    background-color: #ffe0e0; 
+    color: #c0392b;
+    border: 1px solid #f5c6cb;
+}
+
+.chat-modal-chat-interface .chat-input-group {
+    display: flex;
+    gap: 10px;
+}
+#chat-modal-question-input { 
+    flex-grow: 1;
+    padding: 10px 12px; 
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.95em;
+}
+#chat-modal-ask-button { /* General button styles can be in forms.css, specific overrides here */
+    padding: 10px 18px;
+    background-color: #2980b9;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+#chat-modal-ask-button:hover {
+    background-color: #2471a3;
+}
+#chat-modal-ask-button:disabled {
+    background-color: #bdc3c7;
+    cursor: not-allowed;
+}

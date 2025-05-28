@@ -1,0 +1,88 @@
+/* static_frontend/css/base.css */
+
+/* Import Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Roboto:wght@300;400;700&display=swap');
+
+/* General Body and Page Structure */
+body {
+    font-family: 'Roboto', sans-serif;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f7f6; 
+    color: #333;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* Basic reset for box-sizing */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+/* Headings base (specifics in component files) */
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 0; /* Basic reset */
+    font-weight: 700; /* Default to bold for Roboto, Playfair is already bold */
+}
+
+h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.8em; /* Default, can be overridden */
+    letter-spacing: 1px;
+}
+
+h2 {
+    font-family: 'Playfair Display', serif;
+    color: #2c3e50; /* Common h2 color */
+    margin-bottom: 20px; /* Common margin */
+    padding-bottom: 10px; /* Common padding */
+    border-bottom: 2px solid #1abc9c; /* Common border */
+}
+
+h3 {
+    font-family: 'Playfair Display', serif; /* Used in article cards and setup blocks */
+    color: #34495e; /* Common h3 color */
+    margin-bottom: 15px; /* Common margin */
+}
+
+p {
+    margin-bottom: 1em; /* Default paragraph spacing */
+}
+
+a {
+    color: #1abc9c; /* Default link color */
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+a:hover {
+    color: #16a085;
+    text-decoration: underline;
+}
+
+ul, ol {
+    padding-left: 20px;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+}
+
+li {
+    margin-bottom: 0.25em;
+}
+
+pre {
+    background-color: #f8f9f9;
+    border: 1px dashed #d5dbdb;
+    padding: 10px;
+    font-size: 0.9em;
+    white-space: pre-wrap; 
+    word-break: break-all; 
+    border-radius: 4px;
+    margin-top: 5px;
+    max-height: 150px;
+    overflow-y: auto;
+}

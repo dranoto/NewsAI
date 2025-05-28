@@ -1,0 +1,36 @@
+/* static_frontend/css/layout.css */
+
+.page-container {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1; /* Ensures footer stays at bottom */
+}
+
+.container {
+    width: 90%;
+    max-width: 1200px; 
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 15px; 
+    padding-right: 15px;
+}
+
+/* Main Content Area & Sections */
+main.container { /* Specific to the main element with class container */
+    padding-top: 20px;
+    padding-bottom: 20px;
+    flex-grow: 1; 
+}
+
+.content-section {
+    display: none; /* Sections are hidden by default */
+    background-color: #ffffff; 
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08); 
+    margin-bottom: 25px;
+}
+
+.content-section.active {
+    display: block; /* Active section is shown */
+}

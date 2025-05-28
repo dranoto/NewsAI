@@ -1,0 +1,30 @@
+/* static_frontend/css/search.css */
+
+.search-container { /* This is a .container */
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    align-items: center;
+    justify-content: center; 
+}
+
+#keyword-search-input {
+    flex-grow: 1; 
+    max-width: 400px; 
+    padding: 10px 15px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 1em;
+}
+
+/* #keyword-search-btn uses .nav-button styles, specific overrides here if needed */
+#keyword-search-btn { /* Inherits .nav-button */
+    background-color: #3498db; 
+    border-color: #3498db;
+}
+#keyword-search-btn:hover {
+    background-color: #2980b9;
+    border-color: #2980b9;
+}

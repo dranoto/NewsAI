@@ -1,0 +1,20 @@
+/* static_frontend/css/header.css */
+
+header {
+    background: #2c3e50; 
+    color: #ecf0f1; 
+    padding: 25px 0; 
+    text-align: center;
+    border-bottom: 4px solid #1abc9c; 
+}
+
+header h1 { /* Already has base styles from base.css */
+    margin-top: 0; /* Ensure no top margin if not already reset */
+    margin-bottom: 0; /* Ensure no bottom margin if not already reset */
+}
+
+header .tagline {
+    margin-top: 8px;
+    font-size: 1.1em;
+    color: #bdc3c7; 
+}

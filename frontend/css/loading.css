@@ -1,0 +1,33 @@
+/* static_frontend/css/loading.css */
+
+.loading {
+    display: flex; 
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+    text-align: center;
+    color: #555;
+    font-size: 1.1em;
+}
+
+/* Specific for infinite scroll loading indicator at the bottom */
+#infinite-scroll-loading-indicator {
+    display: none; /* Hidden by default, shown by JS */
+    padding: 20px; /* Adjust padding as needed */
+}
+
+.spinner {
+    border: 5px solid #f3f3f3; 
+    border-top: 5px solid #1abc9c; 
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 15px; 
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
