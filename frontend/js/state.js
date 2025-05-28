@@ -2,51 +2,46 @@
 
 /**
  * This module holds the shared frontend state for the NewsAI application.
- * Exported variables can be imported and modified by other modules.
- * It's a simple approach to state management for this application size.
- * For larger applications, a more robust state management library (like Redux, Zustand, or Vuex)
- * might be considered, but for now, direct export/import is sufficient.
+ * Exported variables are 'live bindings' but should generally be modified
+ * via exported setter functions to maintain clarity and control.
  */
 
 // --- Core Application State ---
-export let dbFeedSources = []; // Stores the list of RSS feed sources from the database
-export let articlesPerPage = 6; // Default number of articles to display per page
-export let currentPage = 1; // Current page number for pagination
-export let totalPages = 1; // Total number of pages available based on current filters/articles
-export let totalArticlesAvailable = 0; // Total articles matching current filters
-export let isLoadingMoreArticles = false; // Flag to prevent multiple simultaneous loads during infinite scroll
-export let currentArticleForChat = null; // Holds the article data when the chat modal is open
-export let currentChatHistory = []; // Stores the chat history for the currently open chat modal session
+export let dbFeedSources = []; 
+export let articlesPerPage = 6; 
+export let currentPage = 1; 
+export let totalPages = 1; 
+export let totalArticlesAvailable = 0; 
+export let isLoadingMoreArticles = false; 
+export let currentArticleForChat = null; 
+export let currentChatHistory = []; 
+
+// For polling
+export let lastKnownLatestArticleTimestamp = null; // Stores ISO string
 
 // --- API Endpoints & Configuration ---
-// These can be updated from localStorage or initial config
-export let SUMMARIES_API_ENDPOINT = '/api/get-news-summaries';
-export let CHAT_API_ENDPOINT_BASE = '/api'; // Base for chat-related endpoints like /chat-with-article and /article/{id}/chat-history
+// Default values. These will be updated by configManager.js from localStorage or backend initial config.
+// The backend route for summaries was changed to /api/articles/summaries
+export let SUMMARIES_API_ENDPOINT = '/api/articles/summaries'; 
+export let CHAT_API_ENDPOINT_BASE = '/api'; 
 
 // --- Prompts (Defaults and Current Values) ---
-// These will be initialized with defaults and then potentially overridden by localStorage or user settings
-export let defaultSummaryPrompt = "Please summarize: {text}";
-export let defaultChatPrompt = "Article: {article_text}\nQuestion: {question}\nAnswer:";
-export let defaultTagGenerationPrompt = "Generate 3-5 comma-separated tags for: {text}";
+export let defaultSummaryPrompt = "Task:Generate a concise, narrative summary of the following article. The output must be Markdown-formatted, engaging, and suitable for a news digest. Focus on the key information, main actors, outcomes, and any significant implications. Ensure the summary flows well and captures the essence of the article. Avoid overly technical jargon unless essential and explained. Structure with a clear beginning, middle, and end. {text}";
+export let defaultChatPrompt = "Persona & Goal:You are an insightful AI analyst and conversational partner. Your purpose is to help the user explore the provided article's content in greater depth, moving beyond the initial summary. Engage with their questions thoughtfully, provide detailed explanations, clarify complexities, and offer different perspectives based *only* on the article text. If the user asks for information outside the article, politely state that you can only discuss the provided text. Formatting: Use Markdown for all responses, including bolding, italics, bullet points, and numbered lists where appropriate to enhance readability and structure. Ensure your answers are well-organized and easy to follow. Task: Given the article text below, and the user's question, provide a comprehensive and helpful answer. Article Text: {article_text} Question: {question} Answer (in Markdown):";
+export let defaultTagGenerationPrompt = "Given the following article text, generate a list of 3-5 relevant keywords or tags. These tags should be concise, lowercase, and accurately reflect the main topics, entities, or themes of the article. Output them as a comma-separated list. For example: 'ukraine, military aid, international relations, defense policy, us politics'. Article: {text} Tags:";
 
 export let currentSummaryPrompt = defaultSummaryPrompt;
 export let currentChatPrompt = defaultChatPrompt;
 export let currentTagGenerationPrompt = defaultTagGenerationPrompt;
 
-export let globalRssFetchInterval = 60; // Default global RSS fetch interval in minutes
+export let globalRssFetchInterval = 60; 
 
 // --- Filters ---
-export let activeFeedFilterIds = []; // Array of IDs for currently active feed source filters
-export let activeTagFilterIds = []; // Array of objects {id: tagId, name: tagName} for active tag filters
-export let currentKeywordSearch = null; // Stores the current keyword search term
+export let activeFeedFilterIds = []; 
+export let activeTagFilterIds = []; 
+export let currentKeywordSearch = null; 
 
-// --- DOM Element References (Consider moving to a dedicated UI elements module if it grows too large) ---
-// It can be useful to have some key, frequently accessed elements here,
-// or ensure they are consistently retrieved by UI modules.
-// For now, individual modules will grab their own elements.
-
-// --- Utility functions to update state (optional, but can be good practice) ---
-// These provide a more controlled way to modify state from other modules.
+// --- Utility functions to update state ---
 
 export function setDbFeedSources(sources) {
     dbFeedSources = Array.isArray(sources) ? sources : [];
@@ -81,20 +76,31 @@ export function setTotalArticlesAvailable(count) {
 }
 
 export function setIsLoadingMoreArticles(isLoading) {
-    isLoadingMoreArticles = !!isLoading; // Coerce to boolean
+    isLoadingMoreArticles = !!isLoading; 
 }
 
 export function setCurrentArticleForChat(article) {
-    currentArticleForChat = article; // Can be an object or null
+    currentArticleForChat = article; 
 }
 
 export function setCurrentChatHistory(history) {
     currentChatHistory = Array.isArray(history) ? history : [];
 }
 
+/**
+ * Sets the API endpoint URLs in the state.
+ * @param {string} summariesEndpoint - The new endpoint for summaries.
+ * @param {string} chatBaseEndpoint - The new base endpoint for chat.
+ */
 export function setApiEndpoints(summariesEndpoint, chatBaseEndpoint) {
-    if (summariesEndpoint) SUMMARIES_API_ENDPOINT = summariesEndpoint;
-    if (chatBaseEndpoint) CHAT_API_ENDPOINT_BASE = chatBaseEndpoint;
+    if (typeof summariesEndpoint === 'string' && summariesEndpoint.trim() !== '') {
+        SUMMARIES_API_ENDPOINT = summariesEndpoint.trim();
+        console.log("State: SUMMARIES_API_ENDPOINT updated to:", SUMMARIES_API_ENDPOINT);
+    }
+    if (typeof chatBaseEndpoint === 'string' && chatBaseEndpoint.trim() !== '') {
+        CHAT_API_ENDPOINT_BASE = chatBaseEndpoint.trim();
+        console.log("State: CHAT_API_ENDPOINT_BASE updated to:", CHAT_API_ENDPOINT_BASE);
+    }
 }
 
 export function setDefaultPrompts(summary, chat, tag) {
@@ -111,7 +117,7 @@ export function setCurrentPrompts(summary, chat, tag) {
 
 export function setGlobalRssFetchInterval(interval) {
     const numInterval = parseInt(interval);
-    if (!isNaN(numInterval) && numInterval >= 5) { // Assuming a minimum interval
+    if (!isNaN(numInterval) && numInterval >= 5) { 
         globalRssFetchInterval = numInterval;
     }
 }
@@ -121,7 +127,6 @@ export function setActiveFeedFilterIds(ids) {
 }
 
 export function setActiveTagFilterIds(tagObjects) {
-    // Expects an array of {id: number, name: string}
     activeTagFilterIds = Array.isArray(tagObjects) ? tagObjects.filter(t => t && typeof t.id === 'number' && typeof t.name === 'string') : [];
 }
 export function addActiveTagFilter(tagObj) {
@@ -136,11 +141,23 @@ export function removeActiveTagFilter(tagId) {
     }
 }
 
-
 export function setCurrentKeywordSearch(keyword) {
     currentKeywordSearch = typeof keyword === 'string' ? keyword.trim() : null;
 }
 
-// Log initialization
-console.log("frontend/js/state.js: Module loaded and state initialized.");
+export function setLastKnownLatestArticleTimestamp(timestamp) {
+    if (timestamp && typeof timestamp === 'string') {
+        try {
+            new Date(timestamp); 
+            lastKnownLatestArticleTimestamp = timestamp;
+        } catch (e) {
+            console.error("State: Invalid timestamp provided for lastKnownLatestArticleTimestamp", timestamp, e);
+        }
+    } else if (timestamp === null) {
+        lastKnownLatestArticleTimestamp = null;
+    } else {
+        console.warn("State: Attempted to set invalid lastKnownLatestArticleTimestamp", timestamp);
+    }
+}
 
+console.log("frontend/js/state.js: Module loaded and state initialized.");

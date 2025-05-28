@@ -14,20 +14,18 @@ import * as feedHandler from './js/feedHandler.js';
 // --- DOM Element References (for elements directly handled by this main script) ---
 let refreshNewsBtn, keywordSearchInput, keywordSearchBtn,
     deleteOldDataBtn, daysOldInput, deleteStatusMessage,
-    regeneratePromptForm; // Regenerate summary form itself
+    regeneratePromptForm;
+
+// --- Polling Configuration ---
+const POLLING_INTERVAL_MS = 120000; // Check for new articles every 2 minutes (120,000 ms)
+let pollingIntervalId = null;
 
 // --- Main Application Logic ---
 
-/**
- * Fetches and displays news summaries based on current state (page, filters, keyword).
- * @param {boolean} [forceBackendRssRefresh=false] - If true, tells backend to try refreshing feeds. (Currently not directly used by this param, backend refresh is separate)
- * @param {number} [page=state.currentPage] - The page number to fetch.
- * @param {string} [keyword=state.currentKeywordSearch] - The keyword to search for.
- */
-async function fetchAndDisplaySummaries(forceBackendRssRefresh = false, page = state.currentPage, keyword = state.currentKeywordSearch) {
-    console.log(`MainScript: fetchAndDisplaySummaries called. Page: ${page}, Keyword: ${keyword}, FeedFilters: ${JSON.stringify(state.activeFeedFilterIds)}, TagFilters: ${JSON.stringify(state.activeTagFilterIds.map(t=>t.id))}`);
+async function fetchAndDisplaySummaries(forceBackendRssRefresh = false, page = state.currentPage, keyword = state.currentKeywordSearch, isPollRefresh = false) {
+    console.log(`MainScript: fetchAndDisplaySummaries called. Page: ${page}, Keyword: ${keyword}, IsPoll: ${isPollRefresh}, FeedFilters: ${JSON.stringify(state.activeFeedFilterIds)}, TagFilters: ${JSON.stringify(state.activeTagFilterIds.map(t=>t.id))}`);
     
-    if (page === 1) {
+    if (page === 1) { 
         state.setCurrentPage(1); 
     }
     state.setIsLoadingMoreArticles(true);
@@ -48,9 +46,9 @@ async function fetchAndDisplaySummaries(forceBackendRssRefresh = false, page = s
     }
     const activeFilterDisplay = loadingMessageParts.length > 0 ? loadingMessageParts.join(' & ') : "All Articles";
     
-    if (page === 1) {
+    if (page === 1 && !isPollRefresh) { 
         uiManager.showLoadingIndicator(true, `Fetching page ${state.currentPage} for ${activeFilterDisplay}...`);
-    } else {
+    } else if (page > 1) {
         uiManager.showInfiniteScrollLoadingIndicator(true);
     }
 
@@ -65,11 +63,12 @@ async function fetchAndDisplaySummaries(forceBackendRssRefresh = false, page = s
     };
 
     try {
-        const data = await apiService.fetchNewsSummaries(payload);
+        // apiService.fetchNewsSummaries will use state.SUMMARIES_API_ENDPOINT which is set by configManager
+        const data = await apiService.fetchNewsSummaries(payload); 
         console.log("MainScript: Received data from fetchNewsSummaries:", data);
 
-        if (page === 1) {
-            state.setTotalArticlesAvailable(data.total_articles_available);
+        if (page === 1) { 
+            state.setTotalArticlesAvailable(data.total_articles_available); 
         }
         state.setTotalPages(data.total_pages);
 
@@ -77,8 +76,22 @@ async function fetchAndDisplaySummaries(forceBackendRssRefresh = false, page = s
             data.processed_articles_on_page,
             page === 1, 
             handleArticleTagClick, 
-            uiManager.openRegenerateSummaryModal // Pass the function to open the modal
+            uiManager.openRegenerateSummaryModal 
         );
+
+        if (page === 1 && data.processed_articles_on_page && data.processed_articles_on_page.length > 0) {
+            const newestArticleInBatch = data.processed_articles_on_page.reduce((latest, article) => {
+                if (!article.created_at) return latest; 
+                const articleDate = new Date(article.created_at);
+                return (latest === null || articleDate > latest) ? articleDate : latest;
+            }, null);
+            if (newestArticleInBatch) {
+                if (!state.lastKnownLatestArticleTimestamp || newestArticleInBatch > new Date(state.lastKnownLatestArticleTimestamp)) {
+                    state.setLastKnownLatestArticleTimestamp(newestArticleInBatch.toISOString());
+                    console.log("MainScript: Updated lastKnownLatestArticleTimestamp to:", state.lastKnownLatestArticleTimestamp);
+                }
+            }
+        }
 
         if (page === 1 && data.processed_articles_on_page.length === 0 && data.total_articles_available === 0) {
             let noResultsMessage = `<p>No articles found for the current filter (${activeFilterDisplay}).</p>`;
@@ -87,13 +100,17 @@ async function fetchAndDisplaySummaries(forceBackendRssRefresh = false, page = s
             }
             uiManager.setResultsContainerContent(noResultsMessage);
         }
+        
+        if (isPollRefresh && page === 1 && data.processed_articles_on_page.length > 0) {
+            console.log("MainScript: New articles loaded via polling.");
+        }
 
     } catch (error) {
         console.error('MainScript: Error fetching or displaying summaries:', error);
         const errorMessage = `<p class="error-message">Error fetching summaries: ${error.message}.</p>`;
-        if (page === 1) {
+        if (page === 1 && !isPollRefresh) { 
             uiManager.setResultsContainerContent(errorMessage);
-        } else {
+        } else if (page > 1) {
             const resultsContainer = document.getElementById('results-container');
             if (resultsContainer) {
                 const errorP = document.createElement('p');
@@ -105,107 +122,136 @@ async function fetchAndDisplaySummaries(forceBackendRssRefresh = false, page = s
         state.setTotalPages(state.currentPage); 
     } finally {
         state.setIsLoadingMoreArticles(false);
-        uiManager.showLoadingIndicator(false);
+        if (!isPollRefresh || page > 1) { 
+            uiManager.showLoadingIndicator(false);
+        }
         uiManager.showInfiniteScrollLoadingIndicator(false);
         console.log("MainScript: fetchAndDisplaySummaries finished.");
     }
 }
 
+async function pollForNewArticles() {
+    console.log("MainScript: Polling for new articles. Last known timestamp:", state.lastKnownLatestArticleTimestamp);
+    try {
+        const pollData = await apiService.checkNewArticles(state.lastKnownLatestArticleTimestamp);
+        console.log("MainScript: Poll response:", pollData);
+        if (pollData.new_articles_available) {
+            console.log(`MainScript: New articles available (Count: ${pollData.article_count}). New server latest_article_timestamp: ${pollData.latest_article_timestamp}. Refreshing view.`);
+            // When new articles are found via polling, refresh the view starting from page 1,
+            // clearing current keyword search to show all new articles.
+            // Pass 'true' for isPollRefresh to potentially alter UI feedback (e.g., no full-page loader).
+            if (keywordSearchInput) keywordSearchInput.value = ''; // Clear search UI
+            state.setCurrentKeywordSearch(null); // Clear keyword state
+            await fetchAndDisplaySummaries(false, 1, null, true); 
+        } else {
+            console.log("MainScript: No new articles detected by polling. Current server latest_article_timestamp:", pollData.latest_article_timestamp);
+        }
+        // Always update our knowledge of the server's latest timestamp
+        if (pollData.latest_article_timestamp) {
+             if (!state.lastKnownLatestArticleTimestamp || new Date(pollData.latest_article_timestamp) > new Date(state.lastKnownLatestArticleTimestamp)) {
+                state.setLastKnownLatestArticleTimestamp(pollData.latest_article_timestamp);
+                console.log("MainScript: Polling updated lastKnownLatestArticleTimestamp to server's latest:", state.lastKnownLatestArticleTimestamp);
+            }
+        }
+    } catch (error) {
+        console.error("MainScript: Error during polling:", error);
+    }
+}
 
-/**
- * Initializes the application settings, loads data, and sets up UI.
- */
 async function initializeAppSettings() {
     console.log("MainScript: Initializing application settings...");
     uiManager.showLoadingIndicator(true, "Initializing application...");
-
     try {
         const initialBackendConfig = await apiService.fetchInitialConfigData();
         console.log("MainScript: Initial backend config fetched:", initialBackendConfig);
-
-        configManager.loadConfigurations(initialBackendConfig);
-        state.setDbFeedSources(initialBackendConfig.all_db_feed_sources || []);
         
-        // loadAndRenderDbFeeds will call the callback to renderFeedFilterButtons
-        await feedHandler.loadAndRenderDbFeeds(); 
+        // configManager.loadConfigurations will use state.setApiEndpoints internally
+        configManager.loadConfigurations(initialBackendConfig); 
+        
+        // Safeguard: Ensure SUMMARIES_API_ENDPOINT is the new one after config loading.
+        // This is important if localStorage holds an old value or if backend default wasn't updated.
+        if (state.SUMMARIES_API_ENDPOINT === '/api/get-news-summaries') {
+            console.warn(`MainScript: SUMMARIES_API_ENDPOINT was found to be the old default '/api/get-news-summaries'. 
+                          Updating to '/api/articles/summaries'. 
+                          Please ensure your localStorage ('newsSummariesApiEndpoint') 
+                          and backend's initial-config default for summaries API are updated if this message repeats.`);
+            
+            state.setApiEndpoints('/api/articles/summaries', state.CHAT_API_ENDPOINT_BASE); // Use the setter
+            
+            // If loaded from localStorage, update it too so it's correct next time
+            if(localStorage.getItem('newsSummariesApiEndpoint') === '/api/get-news-summaries'){
+                localStorage.setItem('newsSummariesApiEndpoint', '/api/articles/summaries');
+            }
+            // Re-update UI in setup tab if it was based on the old value from localStorage
+            configManager.updateSetupUI(); 
+        }
 
+
+        state.setDbFeedSources(initialBackendConfig.all_db_feed_sources || []);
+        await feedHandler.loadAndRenderDbFeeds(); 
         uiManager.updateActiveTagFiltersUI(handleRemoveTagFilter); 
         uiManager.showSection('main-feed-section'); 
 
         if (state.dbFeedSources.length > 0 || state.activeTagFilterIds.length > 0 || state.currentKeywordSearch) {
-            console.log("MainScript: Calling fetchAndDisplaySummaries for the first time.");
             await fetchAndDisplaySummaries(false, 1, state.currentKeywordSearch);
         } else {
-            console.log("MainScript: No DB feed sources or active filters, not calling fetchAndDisplaySummaries initially.");
             uiManager.setResultsContainerContent('<p>No RSS feeds configured. Please add some in the Setup tab, or try searching.</p>');
         }
 
-    } catch (error) {
+        if (pollingIntervalId) clearInterval(pollingIntervalId); 
+        await pollForNewArticles(); // Initial poll immediately after setup
+        pollingIntervalId = setInterval(pollForNewArticles, POLLING_INTERVAL_MS);
+        console.log(`MainScript: Started polling for new articles every ${POLLING_INTERVAL_MS / 1000} seconds.`);
+
+    } catch (error) { 
         console.error("MainScript: Error during application initialization:", error);
         uiManager.setResultsContainerContent(`<p class="error-message">Failed to initialize application: ${error.message}</p>`);
-    } finally {
-        uiManager.showLoadingIndicator(false);
     }
+    finally { uiManager.showLoadingIndicator(false); }
     console.log("MainScript: Application settings initialization finished.");
 }
-
-// --- Event Handler Callbacks ---
 
 function handleArticleTagClick(tagId, tagName) {
     console.log(`MainScript: Tag clicked - ID: ${tagId}, Name: ${tagName}`);
     const tagIndex = state.activeTagFilterIds.findIndex(t => t.id === tagId);
-
-    if (tagIndex > -1) { 
-        state.removeActiveTagFilter(tagId);
-    } else { 
-        state.addActiveTagFilter({ id: tagId, name: tagName });
-    }
-    
+    if (tagIndex > -1) { state.removeActiveTagFilter(tagId); } 
+    else { state.addActiveTagFilter({ id: tagId, name: tagName }); }
     state.setActiveFeedFilterIds([]);
     state.setCurrentKeywordSearch(null);
-    if(keywordSearchInput) keywordSearchInput.value = ''; 
-
+    const keywordInput = document.getElementById('keyword-search-input'); // Get ref here
+    if(keywordInput) keywordInput.value = ''; 
     uiManager.updateFeedFilterButtonStyles(); 
     uiManager.updateActiveTagFiltersUI(handleRemoveTagFilter); 
-    
     state.setCurrentPage(1);
-    fetchAndDisplaySummaries(false, 1, null);
+    fetchAndDisplaySummaries(false, 1, null); 
 }
 
 function handleRemoveTagFilter(tagIdToRemove) {
     console.log(`MainScript: Removing tag filter for ID: ${tagIdToRemove}`);
     state.removeActiveTagFilter(tagIdToRemove);
     uiManager.updateActiveTagFiltersUI(handleRemoveTagFilter); 
-    
     document.querySelectorAll(`.article-tag[data-tag-id='${tagIdToRemove}']`).forEach(el => el.classList.remove('active-filter-tag'));
-
     state.setCurrentPage(1);
     fetchAndDisplaySummaries(false, 1, state.currentKeywordSearch);
 }
 
 function handleFeedFilterClick(feedId) {
     console.log(`MainScript: Feed filter clicked for ID: ${feedId}`);
-    if (state.activeFeedFilterIds.includes(feedId)) {
-        state.setActiveFeedFilterIds([]); 
-    } else {
-        state.setActiveFeedFilterIds([feedId]); 
-    }
-
+    if (state.activeFeedFilterIds.includes(feedId)) { state.setActiveFeedFilterIds([]); } 
+    else { state.setActiveFeedFilterIds([feedId]); }
     state.setActiveTagFilterIds([]);
     state.setCurrentKeywordSearch(null);
-    if(keywordSearchInput) keywordSearchInput.value = '';
-
+    const keywordInput = document.getElementById('keyword-search-input'); // Get ref here
+    if(keywordInput) keywordInput.value = '';
     uiManager.updateFeedFilterButtonStyles();
     uiManager.updateActiveTagFiltersUI(handleRemoveTagFilter);
-    
     state.setCurrentPage(1);
-    fetchAndDisplaySummaries(false, 1, null);
+    fetchAndDisplaySummaries(false, 1, null); 
 }
 
 function handleAllFeedsClick() {
     console.log("MainScript: 'All Feeds' button clicked.");
     if (state.activeFeedFilterIds.length === 0 && state.activeTagFilterIds.length === 0 && !state.currentKeywordSearch) return; 
-    
     state.setActiveFeedFilterIds([]);
     uiManager.updateFeedFilterButtonStyles();
     state.setCurrentPage(1);
@@ -216,35 +262,18 @@ async function handleRegenerateSummaryFormSubmit(event) {
     event.preventDefault();
     const articleIdEl = document.getElementById('modal-article-id-input');
     const customPromptEl = document.getElementById('modal-summary-prompt-input');
-
-    if (!articleIdEl || !customPromptEl) {
-        console.error("MainScript: Regenerate summary modal form elements not found.");
-        alert("Error: Could not find modal elements.");
-        return;
-    }
+    if (!articleIdEl || !customPromptEl) { alert("Error: Could not find modal elements."); return; }
     const articleId = articleIdEl.value;
     let customPrompt = customPromptEl.value.trim();
-
-
-    if (!articleId) {
-        alert("Error: Article ID not found for regeneration.");
-        return;
-    }
-
-    if (customPrompt && !customPrompt.includes("{text}")) {
-        alert("The custom prompt must include the placeholder {text}.");
-        return;
-    }
+    if (!articleId) { alert("Error: Article ID not found for regeneration."); return; }
+    if (customPrompt && !customPrompt.includes("{text}")) { alert("The custom prompt must include the placeholder {text}."); return; }
     if (!customPrompt) customPrompt = null; 
-
     const summaryElement = document.getElementById(`summary-text-${articleId}`);
     const articleCardElement = document.getElementById(`article-db-${articleId}`);
     const regenButtonOnCard = articleCardElement ? articleCardElement.querySelector('.regenerate-summary-btn') : null;
-
     if (summaryElement) summaryElement.innerHTML = (typeof marked !== 'undefined' ? marked.parse("Regenerating summary...") : "Regenerating summary...");
     if (regenButtonOnCard) regenButtonOnCard.disabled = true;
     uiManager.closeRegenerateSummaryModal();
-
     try {
         const updatedArticle = await apiService.regenerateSummary(articleId, { custom_prompt: customPrompt });
         if (summaryElement) {
@@ -269,30 +298,22 @@ function handleRegenerateModalUseDefaultPrompt() {
     }
 }
 
-
-// --- Event Listener Setup ---
 function setupGlobalEventListeners() {
     console.log("MainScript: Setting up global event listeners...");
-
-    keywordSearchInput = document.getElementById('keyword-search-input');
+    // DOM elements like keywordSearchInput are now initialized at the top of this file or within this function.
+    keywordSearchInput = document.getElementById('keyword-search-input'); 
     keywordSearchBtn = document.getElementById('keyword-search-btn');
+
     if (keywordSearchBtn && keywordSearchInput) {
         keywordSearchBtn.addEventListener('click', () => {
             const searchTerm = keywordSearchInput.value.trim();
-            console.log("MainScript: Keyword search initiated for:", searchTerm || "clearing search");
             state.setCurrentKeywordSearch(searchTerm || null);
-            state.setActiveFeedFilterIds([]);
-            state.setActiveTagFilterIds([]);
-            uiManager.updateFeedFilterButtonStyles();
-            uiManager.updateActiveTagFiltersUI(handleRemoveTagFilter);
-            state.setCurrentPage(1);
-            fetchAndDisplaySummaries(false, 1, state.currentKeywordSearch);
+            state.setActiveFeedFilterIds([]); state.setActiveTagFilterIds([]);
+            uiManager.updateFeedFilterButtonStyles(); uiManager.updateActiveTagFiltersUI(handleRemoveTagFilter);
+            state.setCurrentPage(1); fetchAndDisplaySummaries(false, 1, state.currentKeywordSearch);
         });
         keywordSearchInput.addEventListener('keypress', (event) => {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                keywordSearchBtn.click();
-            }
+            if (event.key === 'Enter') { event.preventDefault(); keywordSearchBtn.click(); }
         });
     } else { console.warn("MainScript: Keyword search elements not found."); }
 
@@ -306,14 +327,10 @@ function setupGlobalEventListeners() {
                 alert(result.message || "RSS refresh initiated. New articles will appear after processing.");
                 setTimeout(() => {
                     state.setCurrentPage(1); 
-                    fetchAndDisplaySummaries(false, 1, state.currentKeywordSearch);
-                }, 3000); 
-            } catch (error) {
-                console.error("MainScript: Error triggering RSS refresh:", error);
-                alert(`Error triggering refresh: ${error.message}`);
-            } finally {
-                uiManager.showLoadingIndicator(false);
-            }
+                    fetchAndDisplaySummaries(false, 1, state.currentKeywordSearch); 
+                }, 10000); 
+            } catch (error) { console.error("MainScript: Error triggering RSS refresh:", error); alert(`Error triggering refresh: ${error.message}`); } 
+            finally { uiManager.showLoadingIndicator(false); }
         });
     } else { console.warn("MainScript: Refresh news button not found."); }
     
@@ -325,20 +342,15 @@ function setupGlobalEventListeners() {
             const days = parseInt(daysOldInput.value);
             if (isNaN(days) || days <= 0) { alert("Please enter a valid positive number of days."); return; }
             if (!confirm(`Are you sure you want to delete all articles older than ${days} days? This cannot be undone.`)) return;
-            deleteStatusMessage.textContent = "Deleting old data...";
-            deleteStatusMessage.style.color = 'inherit';
+            deleteStatusMessage.textContent = "Deleting old data..."; deleteStatusMessage.style.color = 'inherit';
             try {
                 const result = await apiService.deleteOldData(days);
                 alert(result.message || "Old data cleanup process completed.");
-                deleteStatusMessage.textContent = result.message || "Cleanup complete.";
-                deleteStatusMessage.style.color = 'green';
-                state.setCurrentPage(1); 
-                fetchAndDisplaySummaries(false, 1, state.currentKeywordSearch);
+                deleteStatusMessage.textContent = result.message || "Cleanup complete."; deleteStatusMessage.style.color = 'green';
+                state.setCurrentPage(1); fetchAndDisplaySummaries(false, 1, state.currentKeywordSearch);
             } catch (error) {
-                console.error("MainScript: Error deleting old data:", error);
-                alert(`Error deleting old data: ${error.message}`);
-                deleteStatusMessage.textContent = `Error: ${error.message}`;
-                deleteStatusMessage.style.color = 'red';
+                console.error("MainScript: Error deleting old data:", error); alert(`Error deleting old data: ${error.message}`);
+                deleteStatusMessage.textContent = `Error: ${error.message}`; deleteStatusMessage.style.color = 'red';
             }
         });
     } else { console.warn("MainScript: Delete old data elements not found."); }
@@ -358,23 +370,20 @@ function setupGlobalEventListeners() {
     console.log("MainScript: Global event listeners set up.");
 }
 
-
-// --- DOMContentLoaded ---
 document.addEventListener('DOMContentLoaded', async () => {
     console.log("MainScript: DOMContentLoaded event fired. Script execution starting...");
 
+    // Initialize DOM references for all modules first
     uiManager.initializeUIDOMReferences();
     configManager.initializeDOMReferences();
     chatHandler.initializeChatDOMReferences();
     feedHandler.initializeFeedHandlerDOMReferences(() => {
-        // This callback is passed to feedHandler so it can trigger uiManager
-        // to re-render feed filter buttons after feeds are loaded/changed.
+        // This callback allows feedHandler to trigger UI updates for feed filter buttons
         uiManager.renderFeedFilterButtons(handleFeedFilterClick, handleAllFeedsClick);
     });
 
-    uiManager.setupUIManagerEventListeners(
-        handleRegenerateModalUseDefaultPrompt
-    );
+    // Then setup event listeners for modules that depend on these DOM elements
+    uiManager.setupUIManagerEventListeners(handleRegenerateModalUseDefaultPrompt);
     configManager.setupFormEventListeners({
         onArticlesPerPageChange: () => { 
             state.setCurrentPage(1);
@@ -384,8 +393,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     chatHandler.setupChatModalEventListeners();
     feedHandler.setupFeedHandlerEventListeners();
     
-    setupGlobalEventListeners();
-    await initializeAppSettings();
+    // Setup event listeners handled directly by this main script
+    setupGlobalEventListeners(); 
+    
+    // Initialize application settings and load initial data
+    await initializeAppSettings(); 
     
     console.log("MainScript: Full application initialization complete.");
 });

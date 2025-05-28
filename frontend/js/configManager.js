@@ -9,8 +9,6 @@ import * as state from './state.js';
  */
 
 // --- DOM Element References for the Setup Tab ---
-// It's good practice to get these once, or ensure they are valid before use.
-// These could also be passed in if this module becomes more generic.
 let numArticlesSetupInput, currentNumArticlesDisplay,
     apiUrlInput, currentApiUrlDisplay,
     chatApiUrlInput, currentChatApiUrlDisplay,
@@ -23,7 +21,6 @@ let numArticlesSetupInput, currentNumArticlesDisplay,
 
 /**
  * Initializes the configuration manager by fetching DOM elements.
- * This should be called once the DOM is ready.
  */
 export function initializeDOMReferences() {
     numArticlesSetupInput = document.getElementById('num_articles_setup');
@@ -59,7 +56,6 @@ export function initializeDOMReferences() {
 export function loadConfigurations(initialBackendConfig) {
     console.log("ConfigManager: Loading configurations...");
 
-    // Articles per page
     const storedArticlesPerPage = localStorage.getItem('articlesPerPage');
     if (storedArticlesPerPage) {
         state.setArticlesPerPage(parseInt(storedArticlesPerPage));
@@ -67,25 +63,24 @@ export function loadConfigurations(initialBackendConfig) {
         state.setArticlesPerPage(initialBackendConfig.default_articles_per_page);
     }
 
-    // API Endpoints
     const storedSummariesEndpoint = localStorage.getItem('newsSummariesApiEndpoint');
-    const storedChatEndpointBase = localStorage.getItem('newsChatApiEndpoint'); // This was the full path in old script
+    const storedChatEndpointFullPath = localStorage.getItem('newsChatApiEndpoint'); // This was the full path
     
-    let chatApiBase = initialBackendConfig.default_chat_api_base || '/api'; // Assuming a default base
-    if (storedChatEndpointBase) {
-        // Derive base from full path if it was stored that way
-        chatApiBase = storedChatEndpointBase.endsWith('/chat-with-article') 
-            ? storedChatEndpointBase.substring(0, storedChatEndpointBase.lastIndexOf('/')) 
-            : storedChatEndpointBase;
-        if (!chatApiBase) chatApiBase = '/api'; // Fallback if substring results in empty
+    let chatApiBase = initialBackendConfig.default_chat_api_base || '/api'; 
+    if (storedChatEndpointFullPath) {
+        chatApiBase = storedChatEndpointFullPath.endsWith('/chat-with-article') 
+            ? storedChatEndpointFullPath.substring(0, storedChatEndpointFullPath.lastIndexOf('/')) 
+            : storedChatEndpointFullPath;
+        if (!chatApiBase) chatApiBase = '/api'; 
     }
+    
+    // Use the setter function from state.js
     state.setApiEndpoints(
-        storedSummariesEndpoint || initialBackendConfig.default_summaries_api_endpoint || '/api/get-news-summaries',
+        storedSummariesEndpoint || initialBackendConfig.default_summaries_api_endpoint || '/api/articles/summaries', // Ensure default is correct
         chatApiBase
     );
 
 
-    // AI Prompts - Use defaults from backend config first if no localStorage override
     state.setDefaultPrompts(
         initialBackendConfig.default_summary_prompt,
         initialBackendConfig.default_chat_prompt,
@@ -97,9 +92,6 @@ export function loadConfigurations(initialBackendConfig) {
         localStorage.getItem('customTagGenerationPrompt') || state.defaultTagGenerationPrompt
     );
 
-    // Global RSS Fetch Interval
-    // Note: This is a frontend preference. The actual backend scheduler interval is set in backend config.
-    // This frontend setting is primarily for when new feeds are added via UI without specifying an interval.
     const storedGlobalRssInterval = localStorage.getItem('globalRssFetchInterval');
     if (storedGlobalRssInterval) {
         state.setGlobalRssFetchInterval(parseInt(storedGlobalRssInterval));
@@ -115,10 +107,10 @@ export function loadConfigurations(initialBackendConfig) {
  * Updates the input fields and display elements in the Setup Tab with current configuration values.
  */
 export function updateSetupUI() {
-    if (!numArticlesSetupInput) { // Check if DOM refs are initialized
+    if (!numArticlesSetupInput) { 
         console.warn("ConfigManager: updateSetupUI called before DOM references were initialized. Call initializeDOMReferences first.");
-        initializeDOMReferences(); // Attempt to initialize if not already
-        if(!numArticlesSetupInput) { // If still not available, exit
+        initializeDOMReferences(); 
+        if(!numArticlesSetupInput) { 
             console.error("ConfigManager: DOM elements for setup UI not found even after re-init. Cannot update UI.");
             return;
         }
@@ -130,7 +122,6 @@ export function updateSetupUI() {
     if (apiUrlInput) apiUrlInput.value = state.SUMMARIES_API_ENDPOINT;
     if (currentApiUrlDisplay) currentApiUrlDisplay.textContent = state.SUMMARIES_API_ENDPOINT;
     
-    // CHAT_API_ENDPOINT_BASE is just the base, the input shows the full example endpoint
     if (chatApiUrlInput) chatApiUrlInput.value = `${state.CHAT_API_ENDPOINT_BASE}/chat-with-article`;
     if (currentChatApiUrlDisplay) currentChatApiUrlDisplay.textContent = `${state.CHAT_API_ENDPOINT_BASE}/chat-with-article`;
 
@@ -148,19 +139,17 @@ export function updateSetupUI() {
 
 /**
  * Saves the "Articles per Page" setting.
- * @param {number} count - The new number of articles per page.
- * @param {function} [callback] - Optional callback to execute after saving, e.g., to refresh the feed.
  */
 export function saveArticlesPerPage(count, callback) {
     const newArticlesPerPage = parseInt(count);
-    if (newArticlesPerPage >= 1 && newArticlesPerPage <= 50) { // Max 50, adjust as needed
+    if (newArticlesPerPage >= 1 && newArticlesPerPage <= 50) { 
         state.setArticlesPerPage(newArticlesPerPage);
         localStorage.setItem('articlesPerPage', newArticlesPerPage.toString());
         updateSetupUI();
         alert('Content preferences saved! Articles per page set to ' + newArticlesPerPage);
-        state.setCurrentPage(1); // Reset to first page
+        state.setCurrentPage(1); 
         if (callback && typeof callback === 'function') {
-            callback(); // e.g., fetchAndDisplaySummaries(false, 1, state.currentKeywordSearch)
+            callback(); 
         }
     } else {
         alert('Please enter a number of articles per page between 1 and 50.');
@@ -169,27 +158,33 @@ export function saveArticlesPerPage(count, callback) {
 
 /**
  * Saves the API endpoint settings.
- * @param {string} newSummariesApiUrl - The new URL for the summaries API.
- * @param {string} newChatApiUrlFullPath - The new full URL for the chat API (e.g., /api/chat-with-article).
  */
-export function saveApiEndpoints(newSummariesApiUrl, newChatApiUrlFullPath) {
+export function saveApiEndpoints(newSummariesApiUrlStr, newChatApiUrlFullPathStr) {
     let updated = false;
-    if (newSummariesApiUrl && newSummariesApiUrl.trim()) {
-        state.SUMMARIES_API_ENDPOINT = newSummariesApiUrl.trim(); // Direct update, or use setter
-        localStorage.setItem('newsSummariesApiEndpoint', state.SUMMARIES_API_ENDPOINT);
+    const currentSummariesEndpoint = state.SUMMARIES_API_ENDPOINT;
+    const currentChatBase = state.CHAT_API_ENDPOINT_BASE;
+
+    let finalSummariesEndpoint = currentSummariesEndpoint;
+    let finalChatBase = currentChatBase;
+
+    if (newSummariesApiUrlStr && newSummariesApiUrlStr.trim()) {
+        finalSummariesEndpoint = newSummariesApiUrlStr.trim();
+        localStorage.setItem('newsSummariesApiEndpoint', finalSummariesEndpoint);
         updated = true;
     }
-    if (newChatApiUrlFullPath && newChatApiUrlFullPath.trim()) {
-        localStorage.setItem('newsChatApiEndpoint', newChatApiUrlFullPath.trim()); // Store the full path
-        // Derive base for state.CHAT_API_ENDPOINT_BASE
-        let chatBase = newChatApiUrlFullPath.trim();
+    if (newChatApiUrlFullPathStr && newChatApiUrlFullPathStr.trim()) {
+        const fullPath = newChatApiUrlFullPathStr.trim();
+        localStorage.setItem('newsChatApiEndpoint', fullPath); 
+        let chatBase = fullPath;
         if (chatBase.endsWith('/chat-with-article')) {
             chatBase = chatBase.substring(0, chatBase.lastIndexOf('/'));
         }
-        state.CHAT_API_ENDPOINT_BASE = chatBase || '/api'; // Fallback if substring is empty
+        finalChatBase = chatBase || '/api'; 
         updated = true;
     }
+
     if (updated) {
+        state.setApiEndpoints(finalSummariesEndpoint, finalChatBase); // Use setter
         updateSetupUI();
         alert('API Endpoints updated!');
     }
@@ -197,9 +192,6 @@ export function saveApiEndpoints(newSummariesApiUrl, newChatApiUrlFullPath) {
 
 /**
  * Saves the custom AI prompt settings.
- * @param {string} newSummaryPrompt
- * @param {string} newChatPrompt
- * @param {string} newTagGenerationPrompt
  */
 export function saveAiPrompts(newSummaryPrompt, newChatPrompt, newTagGenerationPrompt) {
     if (newSummaryPrompt && !newSummaryPrompt.includes("{text}")) {
@@ -208,10 +200,8 @@ export function saveAiPrompts(newSummaryPrompt, newChatPrompt, newTagGenerationP
     if (newTagGenerationPrompt && !newTagGenerationPrompt.includes("{text}")) {
         alert("Tag Generation prompt must contain the placeholder {text}."); return;
     }
-    // Looser validation for chat prompt, as per original script
     if (newChatPrompt && !newChatPrompt.includes("{question}")) {
         alert("Chat prompt should ideally include {question}. It's also recommended to include {article_text}.");
-        // Allow saving even if {article_text} is missing
     }
 
     state.setCurrentPrompts(
@@ -234,11 +224,9 @@ export function saveAiPrompts(newSummaryPrompt, newChatPrompt, newTagGenerationP
 export function resetAiPromptsToDefaults() {
     if (confirm("Are you sure you want to reset prompts to their default values?")) {
         state.setCurrentPrompts(state.defaultSummaryPrompt, state.defaultChatPrompt, state.defaultTagGenerationPrompt);
-
         localStorage.removeItem('customSummaryPrompt');
         localStorage.removeItem('customChatPrompt');
         localStorage.removeItem('customTagGenerationPrompt');
-        
         updateSetupUI();
         alert('Prompts have been reset to defaults.');
     }
@@ -246,11 +234,10 @@ export function resetAiPromptsToDefaults() {
 
 /**
  * Saves the global RSS fetch interval preference.
- * @param {number} interval - The new interval in minutes.
  */
 export function saveGlobalRssFetchInterval(interval) {
     const newInterval = parseInt(interval);
-    if (!isNaN(newInterval) && newInterval >= 5) { // Min 5 minutes
+    if (!isNaN(newInterval) && newInterval >= 5) { 
         state.setGlobalRssFetchInterval(newInterval);
         localStorage.setItem('globalRssFetchInterval', newInterval.toString());
         updateSetupUI();
@@ -260,17 +247,14 @@ export function saveGlobalRssFetchInterval(interval) {
     }
 }
 
-
 /**
  * Attaches event listeners to the forms in the Setup Tab.
- * @param {object} callbacks - Object containing callbacks, e.g., { onArticlesPerPageChange: function }
  */
 export function setupFormEventListeners(callbacks = {}) {
     if (!contentPrefsForm) {
         console.warn("ConfigManager: Forms not found, cannot attach event listeners. Call initializeDOMReferences first.");
         return;
     }
-
     if (contentPrefsForm) {
         contentPrefsForm.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -279,7 +263,6 @@ export function setupFormEventListeners(callbacks = {}) {
             }
         });
     }
-
     if (apiEndpointForm) {
         apiEndpointForm.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -288,7 +271,6 @@ export function setupFormEventListeners(callbacks = {}) {
             }
         });
     }
-
     if (aiPromptsForm) {
         aiPromptsForm.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -297,11 +279,9 @@ export function setupFormEventListeners(callbacks = {}) {
             }
         });
     }
-
     if (resetPromptsBtn) {
         resetPromptsBtn.addEventListener('click', resetAiPromptsToDefaults);
     }
-
     if (globalRssSettingsForm) {
         globalRssSettingsForm.addEventListener('submit', (e) => {
             e.preventDefault();
