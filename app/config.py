@@ -17,9 +17,9 @@ DEFAULT_CHAT_MODEL_NAME = os.getenv("DEFAULT_CHAT_MODEL_NAME", "gemini-1.5-flash
 DEFAULT_TAG_MODEL_NAME = os.getenv("DEFAULT_TAG_MODEL_NAME", "gemini-1.5-flash-latest")
 
 # Max output tokens for different LLM tasks
-SUMMARY_MAX_OUTPUT_TOKENS = int(os.getenv("SUMMARY_MAX_OUTPUT_TOKENS", 1024)) # Increased slightly
-CHAT_MAX_OUTPUT_TOKENS = int(os.getenv("CHAT_MAX_OUTPUT_TOKENS", 4096))    # Increased significantly
-TAG_MAX_OUTPUT_TOKENS = int(os.getenv("TAG_MAX_OUTPUT_TOKENS", 100))       # Remains the same, usually short
+SUMMARY_MAX_OUTPUT_TOKENS = int(os.getenv("SUMMARY_MAX_OUTPUT_TOKENS", 1024))
+CHAT_MAX_OUTPUT_TOKENS = int(os.getenv("CHAT_MAX_OUTPUT_TOKENS", 4096))
+TAG_MAX_OUTPUT_TOKENS = int(os.getenv("TAG_MAX_OUTPUT_TOKENS", 100))
 
 # --- RSS Feed Configuration ---
 rss_feeds_env_str = os.getenv("RSS_FEED_URLS", "")
@@ -57,12 +57,21 @@ except ValueError:
     DEFAULT_RSS_FETCH_INTERVAL_MINUTES = 60
 
 
-# Scraper Configuration
-SITES_REQUIRING_PLAYWRIGHT: list[str] = ["wsj.com", "ft.com"]
+# --- Scraper Configuration ---
+SITES_REQUIRING_PLAYWRIGHT: list[str] = ["wsj.com", "ft.com"] # This might be less relevant if all scraping uses Playwright
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-REQUEST_TIMEOUT = 10
+REQUEST_TIMEOUT = 10 # For non-Playwright requests, if any remain
 
-# Default AI Prompts
+# --- Playwright specific settings ---
+PLAYWRIGHT_TIMEOUT = 60000 # Increased from 20000 to match Colab's page.goto timeout
+
+# Path to the browser extension directory (relative to the app's root in Docker, e.g., /app/scraper_assistant)
+PATH_TO_EXTENSION = os.getenv("PATH_TO_EXTENSION", "/app/scraper_assistant")
+# Whether to run the Playwright browser in headless mode
+USE_HEADLESS_BROWSER = os.getenv("USE_HEADLESS_BROWSER", "True").lower() in ('true', '1', 't')
+
+
+# --- Default AI Prompts ---
 DEFAULT_SUMMARY_PROMPT = os.getenv("DEFAULT_SUMMARY_PROMPT", """Task:Generate a concise, narrative summary of the following article. The output must be Markdown-formatted and meticulously optimized for scannability, readability, and minimal cognitive load. (Note: The article title will be provided separately).
 Format & Content:
 
@@ -125,9 +134,6 @@ Article:
 Tags:""")
 
 
-# Playwright specific settings
-PLAYWRIGHT_TIMEOUT = 20000
-
 if not GEMINI_API_KEY:
     print("WARNING: GEMINI_API_KEY environment variable is not set. LLM features will be impaired.")
 
@@ -143,6 +149,10 @@ print(f"CONFIG LOADED: RSS_FEED_URLS from ENV: {RSS_FEED_URLS}")
 print(f"CONFIG LOADED: DEFAULT_PAGE_SIZE: {DEFAULT_PAGE_SIZE}")
 print(f"CONFIG LOADED: MAX_ARTICLES_PER_INDIVIDUAL_FEED: {MAX_ARTICLES_PER_INDIVIDUAL_FEED}")
 print(f"CONFIG LOADED: DEFAULT_RSS_FETCH_INTERVAL_MINUTES: {DEFAULT_RSS_FETCH_INTERVAL_MINUTES}")
+print(f"CONFIG LOADED: PLAYWRIGHT_TIMEOUT: {PLAYWRIGHT_TIMEOUT}")
+print(f"CONFIG LOADED: PATH_TO_EXTENSION: {PATH_TO_EXTENSION}")
+print(f"CONFIG LOADED: USE_HEADLESS_BROWSER: {USE_HEADLESS_BROWSER}")
 print(f"CONFIG LOADED: DEFAULT_SUMMARY_PROMPT (first 100 chars): {DEFAULT_SUMMARY_PROMPT[:100]}...")
-print(f"CONFIG LOADED: DEFAULT_TAG_GENERATION_PROMPT: {DEFAULT_TAG_GENERATION_PROMPT}")
-
+print(f"CONFIG LOADED: DEFAULT_CHAT_PROMPT (first 100 chars): {DEFAULT_CHAT_PROMPT[:100]}...")
+print(f"CONFIG LOADED: CHAT_NO_ARTICLE_PROMPT (first 100 chars): {CHAT_NO_ARTICLE_PROMPT[:100]}...")
+print(f"CONFIG LOADED: DEFAULT_TAG_GENERATION_PROMPT (first 100 chars): {DEFAULT_TAG_GENERATION_PROMPT[:100]}...")

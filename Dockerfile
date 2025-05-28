@@ -22,6 +22,8 @@ RUN playwright install --with-deps chromium
 
 COPY .env /app/.env
 
+COPY ./scraper_assistant /app/scraper_assistant
+
 # Copy your application code (the 'app' package) into the image
 COPY ./app ./app
 
