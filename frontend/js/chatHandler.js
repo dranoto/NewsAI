@@ -2,7 +2,6 @@
 import * as state from './state.js';
 import * as apiService from './apiService.js';
 // Assuming 'marked' library is available globally for Markdown parsing.
-// If not, it would need to be imported or handled differently.
 
 /**
  * This module handles all functionalities related to the article chat modal.
@@ -15,7 +14,6 @@ let articleChatModal, closeArticleChatModalBtn,
 
 /**
  * Initializes DOM references for the chat modal elements.
- * Should be called once the DOM is ready.
  */
 export function initializeChatDOMReferences() {
     articleChatModal = document.getElementById('article-chat-modal');
@@ -29,19 +27,15 @@ export function initializeChatDOMReferences() {
 
 /**
  * Renders the chat history in the modal's display area.
- * @param {HTMLElement} responseDiv - The DOM element where history should be rendered.
- * @param {Array<object>} historyArray - The array of chat history items ({role, content}).
  */
 function renderChatHistoryInModal(responseDiv, historyArray) {
     if (!responseDiv) {
         console.error("ChatHandler: renderChatHistoryInModal - responseDiv is null.");
         return;
     }
-    responseDiv.innerHTML = ''; // Clear previous content
+    responseDiv.innerHTML = ''; 
 
     if (!historyArray || historyArray.length === 0) {
-        // No history to display, or an empty placeholder can be added if desired.
-        // responseDiv.innerHTML = '<p class="chat-placeholder">No chat history yet. Ask a question!</p>';
         return;
     }
 
@@ -49,13 +43,12 @@ function renderChatHistoryInModal(responseDiv, historyArray) {
         const messageDiv = document.createElement('div');
         messageDiv.classList.add(chatItem.role === 'user' ? 'chat-history-q' : 'chat-history-a');
         
-        // Use marked.parse if available, otherwise just textContent
         const content = chatItem.content || (chatItem.role === 'ai' ? "Processing..." : "");
         try {
             if (typeof marked !== 'undefined') {
                 messageDiv.innerHTML = `<strong>${chatItem.role === 'user' ? 'You' : 'AI'}:</strong> ${marked.parse(content)}`;
             } else {
-                messageDiv.innerHTML = `<strong>${chatItem.role === 'user' ? 'You' : 'AI'}:</strong> ${content.replace(/\n/g, '<br>')}`; // Basic newline handling
+                messageDiv.innerHTML = `<strong>${chatItem.role === 'user' ? 'You' : 'AI'}:</strong> ${content.replace(/\n/g, '<br>')}`;
             }
         } catch (e) {
             console.error("ChatHandler: Error parsing markdown for chat message", e);
@@ -68,7 +61,6 @@ function renderChatHistoryInModal(responseDiv, historyArray) {
         responseDiv.appendChild(messageDiv);
     });
 
-    // Auto-scroll to the bottom
     if (responseDiv.scrollHeight > responseDiv.clientHeight) {
         responseDiv.scrollTop = responseDiv.scrollHeight;
     }
@@ -76,8 +68,6 @@ function renderChatHistoryInModal(responseDiv, historyArray) {
 
 /**
  * Fetches and displays the chat history for a given article in the modal.
- * This function includes the fix for correctly processing fetched history.
- * @param {number} articleId - The ID of the article.
  */
 async function fetchAndDisplayChatHistoryForModal(articleId) {
     if (!chatModalHistory) {
@@ -85,20 +75,15 @@ async function fetchAndDisplayChatHistoryForModal(articleId) {
         return;
     }
     chatModalHistory.innerHTML = '<p class="chat-loading">Loading chat history...</p>';
-    state.setCurrentChatHistory([]); // Reset local state history cache
+    state.setCurrentChatHistory([]); 
 
     try {
-        const historyFromServer = await apiService.fetchChatHistory(articleId); // API call
-        
-        // ** THE FIX IS HERE **
-        // The historyFromServer is already an array of {role, content} objects.
-        // We directly use this to set our state and render.
+        const historyFromServer = await apiService.fetchChatHistory(articleId); 
         state.setCurrentChatHistory(historyFromServer || []); 
-
         renderChatHistoryInModal(chatModalHistory, state.currentChatHistory);
     } catch (error) {
         console.error('ChatHandler: Error fetching or displaying chat history:', error);
-        if (chatModalHistory) { // Check again in case it became null
+        if (chatModalHistory) { 
             chatModalHistory.innerHTML = `<p class="error-message">Error loading chat history: ${error.message}</p>`;
         }
     }
@@ -114,22 +99,26 @@ export function openArticleChatModal(articleData) {
         return;
     }
     state.setCurrentArticleForChat(articleData);
-    state.setCurrentChatHistory([]); // Reset/clear history for the new session in the state
+    state.setCurrentChatHistory([]); 
 
     // Populate article preview in the modal
+    // REMOVED the "Read Full Article" link from this preview
     chatModalArticlePreviewContent.innerHTML = `
         <h4>${articleData.title || 'No Title'}</h4>
         <div class="article-summary-preview">
             ${typeof marked !== 'undefined' ? marked.parse(articleData.summary || 'No summary available.') : (articleData.summary || 'No summary available.')}
         </div>
-        <a href="${articleData.url}" target="_blank" rel="noopener noreferrer" class="article-link-modal">Read Full Article</a>
-    `;
+        <p class="chat-modal-source-info">
+            Source: ${articleData.publisher || 'N/A'} | 
+            Published: ${articleData.published_date ? new Date(articleData.published_date).toLocaleDateString() : 'N/A'}
+        </p>
+    `; // Added source/date info, removed full article link
 
-    chatModalHistory.innerHTML = ''; // Clear previous visual history
-    fetchAndDisplayChatHistoryForModal(articleData.id); // Fetch and display history
+    chatModalHistory.innerHTML = ''; 
+    fetchAndDisplayChatHistoryForModal(articleData.id); 
 
     articleChatModal.style.display = "block";
-    chatModalQuestionInput.value = ''; // Clear question input
+    chatModalQuestionInput.value = ''; 
     chatModalQuestionInput.focus();
     console.log(`ChatHandler: Opened chat modal for article ID: ${articleData.id}`);
 }
@@ -142,7 +131,7 @@ export function closeArticleChatModal() {
         articleChatModal.style.display = "none";
     }
     state.setCurrentArticleForChat(null);
-    state.setCurrentChatHistory([]); // Clear history state on close
+    state.setCurrentChatHistory([]); 
     console.log("ChatHandler: Chat modal closed.");
 }
 
@@ -162,18 +151,16 @@ async function handleModalArticleChatSubmit() {
         return;
     }
 
-    // Add user's question to currentChatHistory state and re-render immediately
     const userMessage = { role: 'user', content: question };
-    state.currentChatHistory.push(userMessage); // Update state directly
+    state.currentChatHistory.push(userMessage); 
     renderChatHistoryInModal(chatModalHistory, state.currentChatHistory);
 
-    // Show temporary loading/thinking indicator for AI response
     const thinkingMessage = { role: 'ai', content: 'AI is thinking...'};
     state.currentChatHistory.push(thinkingMessage);
-    renderChatHistoryInModal(chatModalHistory, state.currentChatHistory); // Re-render with thinking message
+    renderChatHistoryInModal(chatModalHistory, state.currentChatHistory); 
 
 
-    chatModalQuestionInput.value = ''; // Clear input field
+    chatModalQuestionInput.value = ''; 
     chatModalQuestionInput.disabled = true;
     chatModalAskButton.disabled = true;
 
@@ -181,31 +168,24 @@ async function handleModalArticleChatSubmit() {
         const payload = {
             article_id: articleDbId,
             question: question,
-            // Use currentChatPrompt from state, fallback to default if not set (though state should handle this)
             chat_prompt: (state.currentChatPrompt !== state.defaultChatPrompt) ? state.currentChatPrompt : null,
-            // Send chat history *before* the current user question and AI thinking message
             chat_history: state.currentChatHistory.slice(0, -2) 
         };
         
-        const data = await apiService.postChatMessage(payload); // API call
+        const data = await apiService.postChatMessage(payload); 
         const answer = data.answer || "No answer received.";
 
-        // Remove the "AI is thinking..." message
         state.currentChatHistory.pop(); 
-        // Add AI's actual answer to state and re-render
         state.currentChatHistory.push({ role: 'ai', content: answer });
         renderChatHistoryInModal(chatModalHistory, state.currentChatHistory);
 
         if (data.error_message) {
             console.warn("ChatHandler: Error message from backend chat response:", data.error_message);
-            // Optionally display this error in the chat UI as an AI message if not already part of 'answer'
         }
 
     } catch (error) {
         console.error('ChatHandler: Error during modal article chat submission:', error);
-        // Remove "AI is thinking..."
         state.currentChatHistory.pop();
-        // Add error to local history and render
         state.currentChatHistory.push({ role: 'ai', content: `AI Error: ${error.message}` });
         renderChatHistoryInModal(chatModalHistory, state.currentChatHistory);
     } finally {
@@ -231,7 +211,6 @@ export function setupChatModalEventListeners() {
         closeArticleChatModalBtn.onclick = closeArticleChatModal;
     }
 
-    // Close modal if clicked outside of its content area
     window.addEventListener('click', function(event) {
         if (event.target === articleChatModal) {
             closeArticleChatModal();
@@ -244,8 +223,8 @@ export function setupChatModalEventListeners() {
 
     if (chatModalQuestionInput) {
         chatModalQuestionInput.addEventListener('keypress', (event) => {
-            if (event.key === 'Enter' && !event.shiftKey) { // Allow shift+enter for newlines if desired
-                event.preventDefault(); // Prevent default form submission/newline
+            if (event.key === 'Enter' && !event.shiftKey) { 
+                event.preventDefault(); 
                 handleModalArticleChatSubmit();
             }
         });

@@ -11,12 +11,13 @@
     height: 100%; 
     overflow: auto; 
     background-color: rgba(0,0,0,0.5); 
-    padding-top: 60px; 
+    padding-top: 30px; 
+    padding-bottom: 30px; 
 }
 
 .modal-content {
     background-color: #fefefe;
-    margin: 5% auto; 
+    margin: 2% auto; 
     padding: 25px;
     border: 1px solid #888;
     width: 80%; 
@@ -24,6 +25,9 @@
     border-radius: 8px;
     box-shadow: 0 5px 15px rgba(0,0,0,0.3);
     position: relative;
+    display: flex; 
+    flex-direction: column;
+    max-height: 90vh; 
 }
 
 .close-button {
@@ -48,6 +52,11 @@
 
 .modal h3 { 
     margin-top: 0; 
+    font-family: 'Playfair Display', serif; 
+    color: #2c3e50; 
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
 }
 .modal p { 
     font-size: 0.95em;
@@ -60,74 +69,83 @@
 
 /* Article Chat Modal Specific Styling */
 .chat-modal-container .modal-content { 
-    max-width: 900px; 
-    width: 90%;
+    max-width: 1000px; 
+    width: 90%;      
 }
 
 .chat-modal-body {
     display: flex;
+    flex-direction: column; 
     gap: 20px; 
-    max-height: 70vh; 
+    flex-grow: 1; 
+    overflow: hidden; 
 }
 
 .chat-modal-article-preview {
-    flex: 1; 
     background-color: #f9f9f9;
-    padding: 15px;
+    padding: 20px; 
     border-radius: 6px;
-    border: 1px solid #eee;
-    overflow-y: auto; 
-    font-size: 0.9em;
+    border: 1px solid #e0e0e0; 
+    font-size: 0.95em; 
+    max-height: 250px; 
+    overflow-y: auto;
+    width: 100%; 
+    box-sizing: border-box;
 }
 .chat-modal-article-preview h4 {
     margin-top: 0;
-    margin-bottom: 10px;
-    color: #333;
-    font-size: 1.2em;
+    margin-bottom: 12px; 
+    color: #2c3e50; 
+    font-size: 1.4em; 
 }
 .chat-modal-article-preview .article-summary-preview {
-    font-size: 0.9em;
-    color: #555;
-    max-height: 200px; 
-    overflow-y: auto;
+    font-size: 1em; 
+    color: #333; 
+    line-height: 1.6; 
     margin-bottom: 10px;
 }
-.chat-modal-article-preview .article-summary-preview p { margin-bottom: 0.5em;}
+.chat-modal-article-preview .article-summary-preview p { margin-bottom: 0.6em;} 
 .chat-modal-article-preview .article-summary-preview ul,
 .chat-modal-article-preview .article-summary-preview ol {
-    padding-left: 20px; margin-bottom: 0.5em;
+    padding-left: 20px; margin-bottom: 0.6em;
 }
-.chat-modal-article-preview .article-link-modal { 
-    display: block;
-    margin-top: 10px;
-    font-size: 0.85em;
+.chat-modal-source-info { 
+    font-size: 0.85em; 
+    color: #666;
+    margin-top: 15px; 
+    text-align: right;
 }
 
+
 .chat-modal-chat-interface {
-    flex: 2; 
     display: flex;
     flex-direction: column;
+    width: 100%; 
+    box-sizing: border-box;
+    flex-grow: 1; 
+    min-height: 300px; 
+    overflow: hidden; 
 }
 
 #chat-modal-history { 
     flex-grow: 1; 
     overflow-y: auto;
-    background-color: #f9f9f9;
-    padding: 10px;
-    border-radius: 4px;
-    border: 1px solid #eee;
-    margin-bottom: 10px; 
-    min-height: 200px; 
+    background-color: #ffffff; 
+    padding: 15px; 
+    border-radius: 6px; 
+    border: 1px solid #d1d5da; 
+    margin-bottom: 15px; 
 }
 
 #chat-modal-history .chat-history-q,
 #chat-modal-history .chat-history-a,
 #chat-modal-history .chat-loading {
-    margin-bottom: 8px;
-    padding: 8px 12px; 
-    border-radius: 6px; 
+    margin-bottom: 12px; 
+    padding: 10px 15px; 
+    border-radius: 10px; 
     line-height: 1.5;
     word-wrap: break-word; 
+    max-width: 80%; 
 }
 #chat-modal-history .chat-history-q p, 
 #chat-modal-history .chat-history-a p {
@@ -143,60 +161,82 @@
     margin-bottom: 0.3em;
 }
 
-#chat-modal-history .chat-history-q { 
-    background-color: #e0efff; 
-    text-align: right;
-    margin-left: 25%; 
+/* --- REVERTED CHAT BUBBLE COLORS --- */
+#chat-modal-history .chat-history-q { /* User message */
+    background-color: #e0efff; /* Light blue background (similar to previous good state) */
+    color: #2c3e50; /* Dark text for readability */
+    margin-left: auto; 
+    border-bottom-right-radius: 2px; 
 }
-#chat-modal-history .chat-history-a { 
-    background-color: #e6ffed; 
-    margin-right: 25%; 
+#chat-modal-history .chat-history-a { /* AI message */
+    background-color: #e6ffed; /* Light green background (similar to previous good state) */
+    color: #212529; /* Dark text for readability */
+    margin-right: auto; 
+    border-bottom-left-radius: 2px; 
 }
+/* --- END OF REVERTED COLORS --- */
+
 #chat-modal-history .chat-loading {
-    color: #777;
+    color: #586069; 
     font-style: italic;
     text-align: center;
+    background-color: transparent;
 }
 #chat-modal-history .error-message { 
-    background-color: #ffe0e0; 
-    color: #c0392b;
-    border: 1px solid #f5c6cb;
+    background-color: #ffeef0; 
+    color: #cb2431; 
+    border: 1px solid #ffccd1;
+    max-width: 100%; 
+    margin-left: 0;
+    margin-right: 0;
 }
 
 .chat-modal-chat-interface .chat-input-group {
     display: flex;
     gap: 10px;
+    margin-top: auto; 
 }
 #chat-modal-question-input { 
     flex-grow: 1;
-    padding: 10px 12px; 
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 0.95em;
+    padding: 12px 15px; 
+    border: 1px solid #d1d5da; 
+    border-radius: 6px; 
+    font-size: 1em; 
+    background-color: #f6f8fa; 
 }
+#chat-modal-question-input:focus {
+    border-color: #0366d6;
+    background-color: #fff;
+    box-shadow: 0 0 0 3px rgba(3,102,214,0.3);
+    outline: none;
+}
+
 #chat-modal-ask-button { 
-    padding: 10px 18px;
-    background-color: #2980b9;
+    padding: 12px 20px; 
+    background-color: #2ea44f; 
     color: white;
-    border: none;
-    border-radius: 4px;
+    border: 1px solid rgba(27,31,35,0.15);
+    border-radius: 6px; 
     cursor: pointer;
-    transition: background-color 0.2s;
+    font-weight: 600;
+    transition: background-color 0.2s cubic-bezier(0.3,0,0.5,1);
 }
 #chat-modal-ask-button:hover {
-    background-color: #2471a3;
+    background-color: #2c974b;
 }
 #chat-modal-ask-button:disabled {
-    background-color: #bdc3c7;
+    background-color: #94d3a2; 
+    border-color: rgba(27,31,35,0.05);
+    color: rgba(255,255,255,0.8);
     cursor: not-allowed;
 }
 
-/* --- NEW: Full Article Content Modal Styles --- */
+/* Full Article Content Modal Styles */
 .full-article-modal-container .modal-content {
-    max-width: 900px; /* Allow it to be wider */
-    width: 90%;
-    max-height: 85vh; /* Limit height */
-    display: flex; /* Use flex for better internal layout */
+    max-width: 1000px; 
+    width: 90%; 
+    max-height: 85vh; 
+    display: flex; 
     flex-direction: column;
 }
 
@@ -209,25 +249,24 @@
     font-size: 1.8em;
 }
 
-.article-content-display { /* This is #full-article-modal-body */
-    flex-grow: 1; /* Allow this area to take available space */
-    overflow-y: auto; /* Make content scrollable */
-    padding: 10px;
-    border: 1px solid #f0f0f0;
-    background-color: #fdfdfd;
+.article-content-display { 
+    flex-grow: 1; 
+    overflow-y: auto; 
+    padding: 15px; 
+    border: 1px solid #e0e0e0; 
+    background-color: #ffffff; 
     border-radius: 4px;
-    line-height: 1.7; /* Improve readability */
-    font-size: 1em; /* Adjust as needed */
+    line-height: 1.7; 
+    font-size: 1em; 
 }
 
-/* Basic styling for elements within sanitized HTML */
 .article-content-display h1,
 .article-content-display h2,
 .article-content-display h3,
 .article-content-display h4,
 .article-content-display h5,
 .article-content-display h6 {
-    font-family: 'Roboto', sans-serif; /* Or keep Playfair if preferred for headings */
+    font-family: 'Roboto', sans-serif; 
     color: #333;
     margin-top: 1.2em;
     margin-bottom: 0.6em;
@@ -238,75 +277,86 @@
 
 .article-content-display p {
     margin-bottom: 1em;
-    color: #444;
+    color: #333; 
 }
 
 .article-content-display ul,
 .article-content-display ol {
     margin-bottom: 1em;
-    padding-left: 30px; /* More indent for lists in full content */
+    padding-left: 30px; 
 }
 
 .article-content-display li {
     margin-bottom: 0.5em;
 }
 
-.article-content-display a { /* Assuming bleach allows 'a' tags */
-    color: #1abc9c;
-    text-decoration: underline;
+.article-content-display a { 
+    color: #0366d6; 
+    text-decoration: none;
 }
 .article-content-display a:hover {
-    color: #16a085;
+    text-decoration: underline;
 }
 
-.article-content-display img { /* Basic image styling */
+.article-content-display img { 
     max-width: 100%;
     height: auto;
-    margin: 10px 0;
-    border-radius: 4px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    margin: 15px 0; 
+    border-radius: 6px; 
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
 }
 
 .article-content-display blockquote {
-    border-left: 3px solid #1abc9c;
+    border-left: 4px solid #d1d5da; 
     padding-left: 15px;
-    margin-left: 0;
-    margin-right: 0;
-    font-style: italic;
-    color: #555;
+    margin: 1em 0; 
+    color: #586069; 
+    font-style: normal; 
 }
 
 .article-content-display pre,
 .article-content-display code {
-    background-color: #f0f0f0;
-    padding: 2px 5px;
+    background-color: #f6f8fa; 
+    padding: 0.2em 0.4em;
     border-radius: 3px;
-    font-family: monospace;
-    font-size: 0.9em;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+    font-size: 0.85em;
     word-wrap: break-word;
 }
 .article-content-display pre {
-    padding: 10px;
-    overflow-x: auto;
+    padding: 16px;
+    overflow: auto;
+    line-height: 1.45;
+    border-radius: 6px;
 }
+.article-content-display pre code {
+    padding: 0;
+    background-color: transparent;
+    border-radius: 0;
+    font-size: 1em; 
+}
+
 
 .article-content-display table {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 1em;
+    display: block; 
+    overflow-x: auto; 
 }
 .article-content-display th,
 .article-content-display td {
-    border: 1px solid #ddd;
-    padding: 8px;
+    border: 1px solid #dfe2e5; 
+    padding: 8px 12px; 
     text-align: left;
 }
 .article-content-display th {
-    background-color: #f2f2f2;
+    background-color: #f6f8fa; 
+    font-weight: 600;
 }
 
 
-.loading-text-modal { /* For the "Loading full article..." message */
+.loading-text-modal { 
     text-align: center;
     font-style: italic;
     color: #777;
@@ -320,16 +370,18 @@
     text-align: right;
 }
 
-.button-like-link { /* For the "View Original" link */
+.button-like-link { 
     display: inline-block;
     padding: 8px 15px;
-    background-color: #3498db;
-    color: white !important; /* Override default link color */
+    background-color: #0366d6; 
+    color: white !important; 
     text-decoration: none !important;
-    border-radius: 4px;
-    transition: background-color 0.2s;
+    border-radius: 6px;
+    border: 1px solid rgba(27,31,35,0.15);
+    font-weight: 600;
+    transition: background-color 0.2s cubic-bezier(0.3,0,0.5,1);
 }
 .button-like-link:hover {
-    background-color: #2980b9;
+    background-color: #005cc5;
     text-decoration: none !important;
 }
