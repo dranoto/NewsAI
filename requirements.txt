@@ -9,3 +9,6 @@ playwright
 sqlalchemy
 apscheduler
 unstructured
+bleach
+beautifulsoup4
+readability-lxml

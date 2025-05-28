@@ -66,33 +66,61 @@ async def chat_with_article_endpoint(
         raise HTTPException(status_code=404, detail="Article not found in database.")
     if query.chat_history: logger.debug(f"Received chat history with {len(query.chat_history)} turns for Article ID: {query.article_id}")
 
-    article_text_for_chat = article_db.scraped_content or ""
+    # --- CORRECTED ATTRIBUTE NAME HERE ---
+    article_text_for_chat = article_db.scraped_text_content or "" # Changed from scraped_content
+    # --- END OF CORRECTION ---
+
     error_detail_for_chat: str | None = None
-    if not article_text_for_chat or article_text_for_chat.startswith("Error:") or article_text_for_chat.startswith("Content Error:"):
-        logger.info(f"CHAT API: Article {article_db.id} content ('{article_text_for_chat[:50]}...') requires re-scraping for chat.")
+    # If content is missing or an error, try to re-scrape
+    # This logic now checks scraped_text_content and full_html_content
+    if not article_text_for_chat or article_text_for_chat.startswith("Error:") or article_text_for_chat.startswith("Content Error:") or not article_db.full_html_content:
+        logger.info(f"CHAT API: Article {article_db.id} content ('{article_text_for_chat[:50]}...') or full HTML requires re-scraping for chat.")
         scraped_docs = await scraper.scrape_urls([str(article_db.url)], app_config.PATH_TO_EXTENSION, app_config.USE_HEADLESS_BROWSER)
         if scraped_docs and scraped_docs[0]:
             doc_item = scraped_docs[0]
             if not doc_item.metadata.get("error") and doc_item.page_content and doc_item.page_content.strip():
-                article_text_for_chat = doc_item.page_content; article_db.scraped_content = article_text_for_chat; db.add(article_db)
-                try: db.commit(); logger.info(f"CHAT API: Successfully re-scraped and saved content for article {article_db.id}. Length: {len(article_text_for_chat)}")
-                except Exception as e_commit: db.rollback(); logger.error(f"CHAT API: Error committing re-scraped content for article {article_db.id}: {e_commit}", exc_info=True); error_detail_for_chat = "Failed to save re-scraped content."; article_text_for_chat = ""
-            else: error_detail_for_chat = doc_item.metadata.get("error", "Re-scraped content was empty or had an error."); article_text_for_chat = ""
-        else: error_detail_for_chat = "Failed to re-scrape article for chat (no document returned)."; article_text_for_chat = ""
+                article_text_for_chat = doc_item.page_content # This is the text content
+                article_db.scraped_text_content = article_text_for_chat # Update DB object
+                article_db.full_html_content = doc_item.metadata.get('full_html_content') # Update HTML too
+                db.add(article_db)
+                try: 
+                    db.commit()
+                    db.refresh(article_db) # Refresh to get updated state
+                    logger.info(f"CHAT API: Successfully re-scraped and saved content for article {article_db.id}. Text Length: {len(article_text_for_chat)}")
+                except Exception as e_commit: 
+                    db.rollback()
+                    logger.error(f"CHAT API: Error committing re-scraped content for article {article_db.id}: {e_commit}", exc_info=True)
+                    error_detail_for_chat = "Failed to save re-scraped content."
+                    article_text_for_chat = "" # Do not use potentially uncommitted content
+            else: 
+                error_detail_for_chat = doc_item.metadata.get("error", "Re-scraped content was empty or had an error.")
+                article_text_for_chat = ""  # Ensure it's empty if re-scrape failed
+                # Update DB with error if appropriate
+                article_db.scraped_text_content = f"Scraping Error (chat attempt): {error_detail_for_chat}"
+                article_db.full_html_content = None
+                db.add(article_db); db.commit(); db.refresh(article_db)
+
+        else: 
+            error_detail_for_chat = "Failed to re-scrape article for chat (no document returned)."
+            article_text_for_chat = ""
+            article_db.scraped_text_content = f"Scraping Error (chat attempt): {error_detail_for_chat}"
+            article_db.full_html_content = None
+            db.add(article_db); db.commit(); db.refresh(article_db)
+
         if error_detail_for_chat: logger.warning(f"CHAT API: Error on re-scrape for Article {article_db.id}: {error_detail_for_chat}")
 
     answer = await summarizer.get_chat_response(
-        llm_instance=llm_chat, # Use injected llm_chat
-        article_text=article_text_for_chat,
+        llm_instance=llm_chat, 
+        article_text=article_text_for_chat, # Use the (potentially re-scraped) text content
         question=query.question,
         chat_history=query.chat_history,
         custom_chat_prompt_str=query.chat_prompt
     )
-    logger.debug(f"CHAT API: LLM Answer for article {article_db.id} (first 100 chars): '{answer[:100]}'") # ADDED LOGGING
+    logger.debug(f"CHAT API: LLM Answer for article {article_db.id} (first 100 chars): '{answer[:100]}'") 
 
     final_error_message_for_response = error_detail_for_chat
     is_llm_error = answer.startswith("Error getting answer from AI:") or answer == "AI returned an empty answer."
-    logger.debug(f"CHAT API: Determined is_llm_error: {is_llm_error} for article {article_db.id}") # ADDED LOGGING
+    logger.debug(f"CHAT API: Determined is_llm_error: {is_llm_error} for article {article_db.id}") 
 
     if is_llm_error:
         current_llm_error = answer
@@ -100,20 +128,20 @@ async def chat_with_article_endpoint(
         else: final_error_message_for_response = f"LLM: {current_llm_error}"
     
     if not is_llm_error:
-        logger.info(f"CHAT API: Attempting to save chat turn for article {article_db.id} as no LLM error detected.") # ADDED LOGGING
+        logger.info(f"CHAT API: Attempting to save chat turn for article {article_db.id} as no LLM error detected.") 
         try:
             new_chat_item_db = database.ChatHistory(
                 article_id=article_db.id,
                 question=query.question,
-                answer=answer, # Store the actual answer from AI
+                answer=answer, 
                 prompt_used=query.chat_prompt or app_config.DEFAULT_CHAT_PROMPT,
                 model_used=app_config.DEFAULT_CHAT_MODEL_NAME
             )
             db.add(new_chat_item_db)
-            logger.debug(f"CHAT API: ChatHistory object created for article {article_db.id}, attempting commit.") # ADDED LOGGING
+            logger.debug(f"CHAT API: ChatHistory object created for article {article_db.id}, attempting commit.") 
             db.commit()
-            db.refresh(new_chat_item_db) # Refresh to get DB-generated values like ID and timestamp
-            logger.info(f"CHAT API: Successfully saved new chat turn (ID {new_chat_item_db.id}, Timestamp: {new_chat_item_db.timestamp}) for article {article_db.id}") # MODIFIED LOGGING
+            db.refresh(new_chat_item_db) 
+            logger.info(f"CHAT API: Successfully saved new chat turn (ID {new_chat_item_db.id}, Timestamp: {new_chat_item_db.timestamp}) for article {article_db.id}") 
         except Exception as e_save_chat:
             db.rollback()
             logger.error(f"CHAT API: Error saving new chat turn to DB for article {article_db.id}: {e_save_chat}", exc_info=True)
@@ -121,7 +149,7 @@ async def chat_with_article_endpoint(
             if final_error_message_for_response: final_error_message_for_response = f"{final_error_message_for_response} | DB: {db_save_error}"
             else: final_error_message_for_response = f"DB: {db_save_error}"
     else:
-        logger.warning(f"CHAT API: Skipping save of chat turn for article {article_db.id} due to is_llm_error being True.") # ADDED LOGGING
+        logger.warning(f"CHAT API: Skipping save of chat turn for article {article_db.id} due to is_llm_error being True.") 
     
     logger.info(f"CHAT API: Sending response for article {article_db.id}. Answer starts: '{answer[:60]}...'. Error: {final_error_message_for_response}")
     return ChatResponse(article_id=article_db.id, question=query.question, answer=answer, error_message=final_error_message_for_response)

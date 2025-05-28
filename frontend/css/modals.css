@@ -11,7 +11,7 @@
     height: 100%; 
     overflow: auto; 
     background-color: rgba(0,0,0,0.5); 
-    padding-top: 60px; /* Space from top for modal to appear */
+    padding-top: 60px; 
 }
 
 .modal-content {
@@ -20,7 +20,7 @@
     padding: 25px;
     border: 1px solid #888;
     width: 80%; 
-    max-width: 600px; /* Default max-width for modals */
+    max-width: 600px; 
     border-radius: 8px;
     box-shadow: 0 5px 15px rgba(0,0,0,0.3);
     position: relative;
@@ -28,16 +28,15 @@
 
 .close-button {
     color: #aaa;
-    /* float: right; -- avoid float for positioning */
     font-size: 28px;
     font-weight: bold;
     position: absolute; 
     top: 10px;
     right: 20px;
-    line-height: 1; /* Ensure consistent vertical alignment */
-    padding: 0; /* Remove any default padding */
-    background: none; /* Remove default button background */
-    border: none; /* Remove default button border */
+    line-height: 1; 
+    padding: 0; 
+    background: none; 
+    border: none; 
     cursor: pointer;
 }
 
@@ -47,33 +46,32 @@
     text-decoration: none;
 }
 
-.modal h3 { /* Base h3 styles in base.css */
-    margin-top: 0; /* Ensure no top margin */
-    /* color: #333; -- can be inherited or overridden */
+.modal h3 { 
+    margin-top: 0; 
 }
-.modal p { /* Base p styles in base.css */
+.modal p { 
     font-size: 0.95em;
     color: #555;
     margin-bottom: 15px;
 }
-.modal .form-group textarea { /* Specific to textareas in modals, if different from general forms */
+.modal .form-group textarea { 
     min-height: 80px; 
 }
 
 /* Article Chat Modal Specific Styling */
-.chat-modal-container .modal-content { /* Override for chat modal */
+.chat-modal-container .modal-content { 
     max-width: 900px; 
-    width: 90%; /* Responsive width */
+    width: 90%;
 }
 
 .chat-modal-body {
     display: flex;
     gap: 20px; 
-    max-height: 70vh; /* Limit height to allow scrolling within modal parts */
+    max-height: 70vh; 
 }
 
 .chat-modal-article-preview {
-    flex: 1; /* Takes 1 part of the space */
+    flex: 1; 
     background-color: #f9f9f9;
     padding: 15px;
     border-radius: 6px;
@@ -90,7 +88,7 @@
 .chat-modal-article-preview .article-summary-preview {
     font-size: 0.9em;
     color: #555;
-    max-height: 200px; /* Limit summary preview height */
+    max-height: 200px; 
     overflow-y: auto;
     margin-bottom: 10px;
 }
@@ -99,14 +97,14 @@
 .chat-modal-article-preview .article-summary-preview ol {
     padding-left: 20px; margin-bottom: 0.5em;
 }
-.chat-modal-article-preview .article-link-modal { /* Base 'a' styles in base.css */
+.chat-modal-article-preview .article-link-modal { 
     display: block;
     margin-top: 10px;
     font-size: 0.85em;
 }
 
 .chat-modal-chat-interface {
-    flex: 2; /* Takes 2 parts of the space */
+    flex: 2; 
     display: flex;
     flex-direction: column;
 }
@@ -119,7 +117,7 @@
     border-radius: 4px;
     border: 1px solid #eee;
     margin-bottom: 10px; 
-    min-height: 200px; /* Ensure it has some height */
+    min-height: 200px; 
 }
 
 #chat-modal-history .chat-history-q,
@@ -145,12 +143,12 @@
     margin-bottom: 0.3em;
 }
 
-#chat-modal-history .chat-history-q { /* User question */
+#chat-modal-history .chat-history-q { 
     background-color: #e0efff; 
     text-align: right;
     margin-left: 25%; 
 }
-#chat-modal-history .chat-history-a { /* AI answer */
+#chat-modal-history .chat-history-a { 
     background-color: #e6ffed; 
     margin-right: 25%; 
 }
@@ -159,7 +157,7 @@
     font-style: italic;
     text-align: center;
 }
-#chat-modal-history .error-message { /* For AI errors displayed in chat */
+#chat-modal-history .error-message { 
     background-color: #ffe0e0; 
     color: #c0392b;
     border: 1px solid #f5c6cb;
@@ -176,7 +174,7 @@
     border-radius: 4px;
     font-size: 0.95em;
 }
-#chat-modal-ask-button { /* General button styles can be in forms.css, specific overrides here */
+#chat-modal-ask-button { 
     padding: 10px 18px;
     background-color: #2980b9;
     color: white;
@@ -191,4 +189,147 @@
 #chat-modal-ask-button:disabled {
     background-color: #bdc3c7;
     cursor: not-allowed;
+}
+
+/* --- NEW: Full Article Content Modal Styles --- */
+.full-article-modal-container .modal-content {
+    max-width: 900px; /* Allow it to be wider */
+    width: 90%;
+    max-height: 85vh; /* Limit height */
+    display: flex; /* Use flex for better internal layout */
+    flex-direction: column;
+}
+
+#full-article-modal-title {
+    font-family: 'Playfair Display', serif;
+    color: #2c3e50;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    font-size: 1.8em;
+}
+
+.article-content-display { /* This is #full-article-modal-body */
+    flex-grow: 1; /* Allow this area to take available space */
+    overflow-y: auto; /* Make content scrollable */
+    padding: 10px;
+    border: 1px solid #f0f0f0;
+    background-color: #fdfdfd;
+    border-radius: 4px;
+    line-height: 1.7; /* Improve readability */
+    font-size: 1em; /* Adjust as needed */
+}
+
+/* Basic styling for elements within sanitized HTML */
+.article-content-display h1,
+.article-content-display h2,
+.article-content-display h3,
+.article-content-display h4,
+.article-content-display h5,
+.article-content-display h6 {
+    font-family: 'Roboto', sans-serif; /* Or keep Playfair if preferred for headings */
+    color: #333;
+    margin-top: 1.2em;
+    margin-bottom: 0.6em;
+}
+.article-content-display h1 { font-size: 1.8em; }
+.article-content-display h2 { font-size: 1.6em; }
+.article-content-display h3 { font-size: 1.4em; }
+
+.article-content-display p {
+    margin-bottom: 1em;
+    color: #444;
+}
+
+.article-content-display ul,
+.article-content-display ol {
+    margin-bottom: 1em;
+    padding-left: 30px; /* More indent for lists in full content */
+}
+
+.article-content-display li {
+    margin-bottom: 0.5em;
+}
+
+.article-content-display a { /* Assuming bleach allows 'a' tags */
+    color: #1abc9c;
+    text-decoration: underline;
+}
+.article-content-display a:hover {
+    color: #16a085;
+}
+
+.article-content-display img { /* Basic image styling */
+    max-width: 100%;
+    height: auto;
+    margin: 10px 0;
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.article-content-display blockquote {
+    border-left: 3px solid #1abc9c;
+    padding-left: 15px;
+    margin-left: 0;
+    margin-right: 0;
+    font-style: italic;
+    color: #555;
+}
+
+.article-content-display pre,
+.article-content-display code {
+    background-color: #f0f0f0;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 0.9em;
+    word-wrap: break-word;
+}
+.article-content-display pre {
+    padding: 10px;
+    overflow-x: auto;
+}
+
+.article-content-display table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1em;
+}
+.article-content-display th,
+.article-content-display td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+.article-content-display th {
+    background-color: #f2f2f2;
+}
+
+
+.loading-text-modal { /* For the "Loading full article..." message */
+    text-align: center;
+    font-style: italic;
+    color: #777;
+    padding: 20px;
+}
+
+.full-article-modal-footer {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+    text-align: right;
+}
+
+.button-like-link { /* For the "View Original" link */
+    display: inline-block;
+    padding: 8px 15px;
+    background-color: #3498db;
+    color: white !important; /* Override default link color */
+    text-decoration: none !important;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+.button-like-link:hover {
+    background-color: #2980b9;
+    text-decoration: none !important;
 }

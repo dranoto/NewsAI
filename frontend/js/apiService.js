@@ -21,29 +21,25 @@ async function handleFetch(url, options = {}) {
         if (!response.ok) {
             let errorDetail = `HTTP error! status: ${response.status}`;
             try {
-                // Try to parse error response from backend if it's JSON
                 const errorData = await response.json();
                 errorDetail = errorData.detail || JSON.stringify(errorData) || errorDetail;
             } catch (e) {
-                // If error response is not JSON, use text
                 try {
                     errorDetail = await response.text() || errorDetail;
                 } catch (e_text) {
-                    // Fallback if text() also fails
+                    // Fallback
                 }
             }
             console.error(`API Service: Fetch error for ${url} - ${errorDetail}`);
             throw new Error(errorDetail);
         }
-        // Handle 204 No Content responses specifically, as .json() will fail
         if (response.status === 204) {
             console.log(`API Service: Received 204 No Content for ${url}`);
-            return null; // Or an empty object, depending on how it's handled
+            return null; 
         }
         return response.json();
     } catch (error) {
         console.error(`API Service: Network or unexpected error for ${url}: ${error.message}`, error);
-        // Re-throw the error so the calling function can handle it
         throw error;
     }
 }
@@ -145,7 +141,6 @@ export async function regenerateSummary(articleId, payload) {
  * @returns {Promise<Array<object>>} A list of chat history items.
  */
 export async function fetchChatHistory(articleId) {
-    // CHAT_API_ENDPOINT_BASE should be '/api' if the endpoint is '/api/article/...'
     return handleFetch(`${CHAT_API_ENDPOINT_BASE}/article/${articleId}/chat-history`);
 }
 
@@ -155,7 +150,6 @@ export async function fetchChatHistory(articleId) {
  * @returns {Promise<object>} The AI's response to the chat message.
  */
 export async function postChatMessage(payload) {
-    // CHAT_API_ENDPOINT_BASE should be '/api' if the endpoint is '/api/chat-with-article'
     return handleFetch(`${CHAT_API_ENDPOINT_BASE}/chat-with-article`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -172,6 +166,18 @@ export async function deleteOldData(daysOld) {
     return handleFetch(`/api/admin/cleanup-old-data?days_old=${daysOld}`, {
         method: 'DELETE'
     });
+}
+
+/**
+ * NEW FUNCTION: Fetches the sanitized full HTML content for a specific article.
+ * @param {number} articleId - The ID of the article.
+ * @returns {Promise<object>} An object containing the sanitized HTML content and other article details.
+ * Expected response format: { article_id, original_url, title, sanitized_html_content, error_message }
+ */
+export async function fetchSanitizedArticleContent(articleId) {
+    // The CHAT_API_ENDPOINT_BASE is likely just '/api'. The full path is constructed here.
+    // If your content_routes.py has a prefix like "/api/articles", this is correct.
+    return handleFetch(`${CHAT_API_ENDPOINT_BASE}/articles/${articleId}/content`);
 }
 
 console.log("frontend/js/apiService.js: Module loaded.");

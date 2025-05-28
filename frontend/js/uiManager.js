@@ -1,10 +1,7 @@
 // frontend/js/uiManager.js
 import * as state from './state.js';
-// Import chatHandler if its functions are directly called for opening modals from article cards
+import * as apiService from './apiService.js'; 
 import * as chatHandler from './chatHandler.js';
-// We'll need a way to open the regenerate summary modal. This might be a local function
-// or imported if we create a dedicated modal manager or if configManager handles it.
-// For now, let's assume a local function or one to be defined in the main script.
 
 /**
  * This module is responsible for all direct UI manipulations,
@@ -16,13 +13,12 @@ import * as chatHandler from './chatHandler.js';
 let resultsContainer, loadingIndicator, loadingText, infiniteScrollLoadingIndicator,
     feedFilterControls, activeTagFiltersDisplay,
     mainFeedSection, setupSection, navMainBtn, navSetupBtn,
-    regenerateSummaryModal, closeRegenerateModalBtn, modalArticleIdInput, modalSummaryPromptInput, modalUseDefaultPromptBtn;
-    // Note: Regenerate summary modal elements are listed here. Their event handling
-    // might be in configManager.js or the main script, but uiManager can control visibility.
+    regenerateSummaryModal, closeRegenerateModalBtn, modalArticleIdInput, modalSummaryPromptInput, modalUseDefaultPromptBtn,
+    fullArticleModal, closeFullArticleModalBtn, fullArticleModalTitle, fullArticleModalBody, fullArticleModalOriginalLink;
+
 
 /**
  * Initializes DOM references for UI elements.
- * Should be called once the DOM is ready.
  */
 export function initializeUIDOMReferences() {
     resultsContainer = document.getElementById('results-container');
@@ -36,23 +32,25 @@ export function initializeUIDOMReferences() {
     navMainBtn = document.getElementById('nav-main-btn');
     navSetupBtn = document.getElementById('nav-setup-btn');
 
-    // Regenerate Summary Modal Elements
     regenerateSummaryModal = document.getElementById('regenerate-summary-modal');
     closeRegenerateModalBtn = document.getElementById('close-regenerate-modal-btn');
-    modalArticleIdInput = document.getElementById('modal-article-id-input'); // Used to set article ID
-    modalSummaryPromptInput = document.getElementById('modal-summary-prompt-input'); // Used to set prompt
+    modalArticleIdInput = document.getElementById('modal-article-id-input'); 
+    modalSummaryPromptInput = document.getElementById('modal-summary-prompt-input'); 
     modalUseDefaultPromptBtn = document.getElementById('modal-use-default-prompt-btn');
 
+    fullArticleModal = document.getElementById('full-article-modal');
+    closeFullArticleModalBtn = document.getElementById('close-full-article-modal-btn');
+    fullArticleModalTitle = document.getElementById('full-article-modal-title');
+    fullArticleModalBody = document.getElementById('full-article-modal-body');
+    fullArticleModalOriginalLink = document.getElementById('full-article-modal-original-link');
 
     console.log("UIManager: DOM references initialized.");
     if (!resultsContainer) console.error("UIManager: results-container not found!");
-    if (!loadingIndicator) console.error("UIManager: loading-indicator not found!");
+    if (!fullArticleModal) console.warn("UIManager: full-article-modal not found!");
 }
 
 /**
  * Shows or hides the main loading indicator.
- * @param {boolean} show - True to show, false to hide.
- * @param {string} [message] - Optional message to display.
  */
 export function showLoadingIndicator(show, message = "Loading...") {
     if (loadingIndicator && loadingText) {
@@ -65,7 +63,6 @@ export function showLoadingIndicator(show, message = "Loading...") {
 
 /**
  * Shows or hides the infinite scroll loading indicator.
- * @param {boolean} show - True to show, false to hide.
  */
 export function showInfiniteScrollLoadingIndicator(show) {
     if (infiniteScrollLoadingIndicator) {
@@ -76,11 +73,56 @@ export function showInfiniteScrollLoadingIndicator(show) {
 }
 
 /**
+ * Opens the Full Article Content modal and fetches/displays content.
+ */
+export async function openAndLoadFullArticleModal(articleId, articleTitle, originalUrl) {
+    if (!fullArticleModal || !fullArticleModalTitle || !fullArticleModalBody || !fullArticleModalOriginalLink) {
+        console.error("UIManager: Full article modal elements not found. Cannot open.");
+        return;
+    }
+
+    fullArticleModalTitle.textContent = articleTitle || "Full Article";
+    fullArticleModalBody.innerHTML = '<p class="loading-text-modal">Loading full article content...</p>'; 
+    fullArticleModalOriginalLink.href = originalUrl || "#";
+    fullArticleModalOriginalLink.textContent = "View Original on Publisher's Site";
+
+    fullArticleModal.style.display = "block";
+    console.log(`UIManager: Opening full article modal for article ID: ${articleId}`);
+
+    try {
+        const contentData = await apiService.fetchSanitizedArticleContent(articleId);
+        if (contentData.error_message) {
+            fullArticleModalBody.innerHTML = `<p class="error-message">${contentData.error_message}</p>`;
+            // Corrected logger usage:
+            console.warn(`UIManager: Error fetching sanitized content for article ${articleId}: ${contentData.error_message}`);
+        } else if (contentData.sanitized_html_content) {
+            fullArticleModalBody.innerHTML = contentData.sanitized_html_content;
+        } else {
+            fullArticleModalBody.innerHTML = "<p>Full article content could not be loaded or is empty.</p>";
+        }
+        if(contentData.title) fullArticleModalTitle.textContent = contentData.title;
+        if(contentData.original_url) fullArticleModalOriginalLink.href = contentData.original_url;
+
+    } catch (error) {
+        console.error(`UIManager: Failed to fetch or display sanitized content for article ${articleId}:`, error);
+        fullArticleModalBody.innerHTML = `<p class="error-message">Error loading content: ${error.message}</p>`;
+    }
+}
+
+/**
+ * Closes the Full Article Content modal.
+ */
+export function closeFullArticleModal() {
+    if (fullArticleModal) {
+        fullArticleModal.style.display = "none";
+        if(fullArticleModalBody) fullArticleModalBody.innerHTML = ''; 
+    }
+    console.log("UIManager: Full article modal closed.");
+}
+
+
+/**
  * Displays article results in the results container.
- * @param {Array<object>} articles - Array of article objects to display.
- * @param {boolean} clearPrevious - True to clear existing articles, false to append.
- * @param {function} onTagClickCallback - Callback function when a tag is clicked.
- * @param {function} onRegenerateClickCallback - Callback for regenerate summary button.
  */
 export function displayArticleResults(articles, clearPrevious, onTagClickCallback, onRegenerateClickCallback) {
     if (!resultsContainer) {
@@ -92,10 +134,6 @@ export function displayArticleResults(articles, clearPrevious, onTagClickCallbac
     }
 
     if (!articles || articles.length === 0) {
-        if (clearPrevious && state.currentPage === 1 && !state.currentKeywordSearch && state.activeTagFilterIds.length === 0 && state.activeFeedFilterIds.length === 0) {
-            // Only show "no articles" if it's an initial load with no filters and no results.
-            // resultsContainer.innerHTML = '<p>No articles found for the current filter.</p>';
-        }
         console.log("UIManager: No new articles to display.");
         return;
     }
@@ -105,17 +143,31 @@ export function displayArticleResults(articles, clearPrevious, onTagClickCallbac
         articleCard.classList.add('article-card');
         articleCard.setAttribute('id', `article-db-${article.id}`);
 
+        // --- ICON PLACEMENT FIX ---
+        // Regenerate Summary Button and Direct Link Icon are appended DIRECTLY to articleCard
+        // Their CSS in article_card.css uses position: absolute relative to articleCard.
+        // NO .article-card-actions wrapper div is used here.
+
         const regenButton = document.createElement('button');
         regenButton.classList.add('regenerate-summary-btn');
         regenButton.title = "Regenerate Summary";
         regenButton.onclick = () => {
             if (onRegenerateClickCallback && typeof onRegenerateClickCallback === 'function') {
                 onRegenerateClickCallback(article.id);
-            } else {
-                console.warn("UIManager: onRegenerateClickCallback not provided for article card.");
             }
         };
-        articleCard.appendChild(regenButton);
+        articleCard.appendChild(regenButton); // Append directly
+
+        const directLinkIcon = document.createElement('a');
+        directLinkIcon.href = article.url;
+        directLinkIcon.target = "_blank";
+        directLinkIcon.rel = "noopener noreferrer";
+        directLinkIcon.classList.add('direct-link-icon');
+        directLinkIcon.title = "View Original Article";
+        directLinkIcon.innerHTML = "&#128279;"; // Link symbol emoji 
+        articleCard.appendChild(directLinkIcon); // Append directly
+
+        // --- End of ICON PLACEMENT FIX ---
 
         const titleEl = document.createElement('h3');
         titleEl.textContent = article.title || 'No Title Provided';
@@ -141,15 +193,11 @@ export function displayArticleResults(articles, clearPrevious, onTagClickCallbac
         }
         if (metaInfo.hasChildNodes()) articleCard.appendChild(metaInfo);
 
-        if (article.url) {
-            const l = document.createElement('a');
-            l.href = article.url;
-            l.textContent = 'Read Full Article';
-            l.classList.add('source-link');
-            l.target = '_blank';
-            l.rel = 'noopener noreferrer';
-            articleCard.appendChild(l);
-        }
+        const readFullArticleBtn = document.createElement('button'); 
+        readFullArticleBtn.textContent = 'Read Full Article (In-App)';
+        readFullArticleBtn.classList.add('read-full-article-btn'); 
+        readFullArticleBtn.onclick = () => openAndLoadFullArticleModal(article.id, article.title, article.url);
+        articleCard.appendChild(readFullArticleBtn);
 
         const summaryP = document.createElement('div');
         summaryP.classList.add('summary');
@@ -189,7 +237,7 @@ export function displayArticleResults(articles, clearPrevious, onTagClickCallbac
         const openChatBtn = document.createElement('button');
         openChatBtn.classList.add('open-chat-modal-btn');
         openChatBtn.textContent = 'Chat about this article';
-        openChatBtn.onclick = () => chatHandler.openArticleChatModal(article); // Directly call chatHandler
+        openChatBtn.onclick = () => chatHandler.openArticleChatModal(article);
         articleCard.appendChild(openChatBtn);
 
         resultsContainer.appendChild(articleCard);
@@ -198,9 +246,7 @@ export function displayArticleResults(articles, clearPrevious, onTagClickCallbac
 }
 
 /**
- * Renders the feed filter buttons based on dbFeedSources from state.
- * @param {function} onFeedFilterClick - Callback when a feed filter button is clicked.
- * @param {function} onAllFeedsClick - Callback when 'All Feeds' button is clicked.
+ * Renders the feed filter buttons.
  */
 export function renderFeedFilterButtons(onFeedFilterClick, onAllFeedsClick) {
     if (!feedFilterControls) {
@@ -208,34 +254,31 @@ export function renderFeedFilterButtons(onFeedFilterClick, onAllFeedsClick) {
         return;
     }
     feedFilterControls.innerHTML = '';
-
     const allFeedsButton = document.createElement('button');
     allFeedsButton.textContent = 'All Feeds';
     allFeedsButton.onclick = onAllFeedsClick;
     feedFilterControls.appendChild(allFeedsButton);
-
     state.dbFeedSources.forEach(feed => {
         const feedButton = document.createElement('button');
-        // Attempt to get a display name
         let displayName = feed.name || (feed.url ? feed.url.split('/')[2]?.replace(/^www\./, '') : 'Unknown Feed');
-        if (displayName.length > 30) displayName = displayName.substring(0, 27) + "..."; // Truncate long names
+        if (displayName.length > 30) displayName = displayName.substring(0, 27) + "..."; 
         feedButton.textContent = displayName;
-        feedButton.title = `${feed.name || 'Unnamed Feed'} (${feed.url})`; // Full details on hover
+        feedButton.title = `${feed.name || 'Unnamed Feed'} (${feed.url})`; 
         feedButton.setAttribute('data-feedid', feed.id.toString());
         feedButton.onclick = () => onFeedFilterClick(feed.id);
         feedFilterControls.appendChild(feedButton);
     });
-    updateFeedFilterButtonStyles(); // Apply active styles
+    updateFeedFilterButtonStyles();
 }
 
 /**
- * Updates the visual style of feed filter buttons to show active filters.
+ * Updates the visual style of feed filter buttons.
  */
 export function updateFeedFilterButtonStyles() {
     if (!feedFilterControls) return;
     const buttons = feedFilterControls.querySelectorAll('button');
     buttons.forEach(button => {
-        button.classList.remove('active'); // Remove active from all first
+        button.classList.remove('active'); 
         const feedIdAttr = button.getAttribute('data-feedid');
         if (state.activeFeedFilterIds.length === 0 && button.textContent === 'All Feeds') {
             button.classList.add('active');
@@ -246,8 +289,7 @@ export function updateFeedFilterButtonStyles() {
 }
 
 /**
- * Updates the UI to display the currently active tag filters.
- * @param {function} onRemoveTagFilterCallback - Callback when a tag filter remove button is clicked.
+ * Updates the UI to display active tag filters.
  */
 export function updateActiveTagFiltersUI(onRemoveTagFilterCallback) {
     if (!activeTagFiltersDisplay) {
@@ -259,18 +301,15 @@ export function updateActiveTagFiltersUI(onRemoveTagFilterCallback) {
         activeTagFiltersDisplay.style.display = 'none';
         return;
     }
-
     activeTagFiltersDisplay.style.display = 'block';
     const heading = document.createElement('span');
     heading.textContent = 'Filtered by tags: ';
     heading.style.fontWeight = 'bold';
     activeTagFiltersDisplay.appendChild(heading);
-
     state.activeTagFilterIds.forEach(tagObj => {
         const tagSpan = document.createElement('span');
         tagSpan.classList.add('active-tag-filter');
         tagSpan.textContent = tagObj.name;
-
         const removeBtn = document.createElement('span');
         removeBtn.classList.add('remove-tag-filter-btn');
         removeBtn.textContent = '×';
@@ -286,8 +325,7 @@ export function updateActiveTagFiltersUI(onRemoveTagFilterCallback) {
 }
 
 /**
- * Shows a specific section (e.g., main feed or setup) and hides others.
- * @param {string} sectionId - The ID of the section to show.
+ * Shows a specific section.
  */
 export function showSection(sectionId) {
     if (!mainFeedSection || !setupSection || !navMainBtn || !navSetupBtn) {
@@ -298,14 +336,12 @@ export function showSection(sectionId) {
     setupSection.classList.remove('active');
     navMainBtn.classList.remove('active');
     navSetupBtn.classList.remove('active');
-
     const sectionToShow = document.getElementById(sectionId);
     if (sectionToShow) {
         sectionToShow.classList.add('active');
     } else {
         console.error(`UIManager: Section with ID '${sectionId}' not found.`);
     }
-
     if (sectionId === 'main-feed-section' && navMainBtn) {
         navMainBtn.classList.add('active');
     } else if (sectionId === 'setup-section' && navSetupBtn) {
@@ -315,8 +351,7 @@ export function showSection(sectionId) {
 }
 
 /**
- * Opens the regenerate summary modal and pre-fills it.
- * @param {number} articleId - The ID of the article.
+ * Opens the regenerate summary modal.
  */
 export function openRegenerateSummaryModal(articleId) {
     if (!regenerateSummaryModal || !modalArticleIdInput || !modalSummaryPromptInput) {
@@ -324,7 +359,7 @@ export function openRegenerateSummaryModal(articleId) {
         return;
     }
     modalArticleIdInput.value = articleId.toString();
-    modalSummaryPromptInput.value = state.currentSummaryPrompt || state.defaultSummaryPrompt; // Use current or default
+    modalSummaryPromptInput.value = state.currentSummaryPrompt || state.defaultSummaryPrompt;
     regenerateSummaryModal.style.display = "block";
     console.log(`UIManager: Opened regenerate summary modal for article ID: ${articleId}`);
 }
@@ -340,37 +375,33 @@ export function closeRegenerateSummaryModal() {
 }
 
 /**
- * Sets up basic event listeners for UI elements managed by UIManager, like modal close buttons.
- * More complex event listeners (forms, dynamic content) might be set up by their respective handlers or the main script.
- * @param {function} onRegenerateModalUseDefaultPrompt - Callback for 'Use Default' button in regen modal.
- * @param {function} onRegenerateModalSubmit - Callback for regen modal form submission.
+ * Sets up basic event listeners for UI elements managed by UIManager.
  */
-export function setupUIManagerEventListeners(onRegenerateModalUseDefaultPrompt, onRegenerateModalSubmit) {
+export function setupUIManagerEventListeners(onRegenerateModalUseDefaultPrompt) {
     if (closeRegenerateModalBtn) {
         closeRegenerateModalBtn.onclick = closeRegenerateSummaryModal;
     }
     if (modalUseDefaultPromptBtn && typeof onRegenerateModalUseDefaultPrompt === 'function') {
         modalUseDefaultPromptBtn.onclick = onRegenerateModalUseDefaultPrompt;
     }
-    
-    // Regenerate modal form submission is handled by the main script or configManager,
-    // but closing on window click can be here.
     window.addEventListener('click', function(event) {
         if (regenerateSummaryModal && event.target === regenerateSummaryModal) {
             closeRegenerateSummaryModal();
         }
+        if (fullArticleModal && event.target === fullArticleModal) {
+            closeFullArticleModal();
+        }
     });
-
-    // Navigation buttons
+    if (closeFullArticleModalBtn) {
+        closeFullArticleModalBtn.onclick = closeFullArticleModal;
+    }
     if (navMainBtn) navMainBtn.addEventListener('click', () => showSection('main-feed-section'));
     if (navSetupBtn) navSetupBtn.addEventListener('click', () => showSection('setup-section'));
-
     console.log("UIManager: Basic event listeners set up.");
 }
 
 /**
- * Sets the content of the results container, typically used for messages like "No feeds configured".
- * @param {string} htmlContent - The HTML content to set.
+ * Sets the content of the results container.
  */
 export function setResultsContainerContent(htmlContent) {
     if (resultsContainer) {
@@ -379,6 +410,5 @@ export function setResultsContainerContent(htmlContent) {
         console.error("UIManager: resultsContainer not found, cannot set content.");
     }
 }
-
 
 console.log("frontend/js/uiManager.js: Module loaded.");

@@ -20,7 +20,7 @@ let refreshNewsBtn, keywordSearchInput, keywordSearchBtn,
 
 /**
  * Fetches and displays news summaries based on current state (page, filters, keyword).
- * @param {boolean} [forceBackendRssRefresh=false] - Not directly used here, backend refresh is separate.
+ * @param {boolean} [forceBackendRssRefresh=false] - If true, tells backend to try refreshing feeds. (Currently not directly used by this param, backend refresh is separate)
  * @param {number} [page=state.currentPage] - The page number to fetch.
  * @param {string} [keyword=state.currentKeywordSearch] - The keyword to search for.
  */
@@ -28,8 +28,7 @@ async function fetchAndDisplaySummaries(forceBackendRssRefresh = false, page = s
     console.log(`MainScript: fetchAndDisplaySummaries called. Page: ${page}, Keyword: ${keyword}, FeedFilters: ${JSON.stringify(state.activeFeedFilterIds)}, TagFilters: ${JSON.stringify(state.activeTagFilterIds.map(t=>t.id))}`);
     
     if (page === 1) {
-        state.setCurrentPage(1); // Ensure currentPage state is reset
-        // uiManager will clear results container if clearPrevious is true
+        state.setCurrentPage(1); 
     }
     state.setIsLoadingMoreArticles(true);
 
@@ -76,9 +75,9 @@ async function fetchAndDisplaySummaries(forceBackendRssRefresh = false, page = s
 
         uiManager.displayArticleResults(
             data.processed_articles_on_page,
-            page === 1, // clearPrevious only if it's the first page
-            handleArticleTagClick, // Callback for tag clicks
-            uiManager.openRegenerateSummaryModal // Callback for regenerate button
+            page === 1, 
+            handleArticleTagClick, 
+            uiManager.openRegenerateSummaryModal // Pass the function to open the modal
         );
 
         if (page === 1 && data.processed_articles_on_page.length === 0 && data.total_articles_available === 0) {
@@ -95,13 +94,15 @@ async function fetchAndDisplaySummaries(forceBackendRssRefresh = false, page = s
         if (page === 1) {
             uiManager.setResultsContainerContent(errorMessage);
         } else {
-            // For infinite scroll errors, append to existing content or show a toast/message
-            const errorP = document.createElement('p');
-            errorP.classList.add('error-message');
-            errorP.textContent = `Error fetching more articles: ${error.message}`;
-            document.getElementById('results-container')?.appendChild(errorP); // Append directly or use uiManager
+            const resultsContainer = document.getElementById('results-container');
+            if (resultsContainer) {
+                const errorP = document.createElement('p');
+                errorP.classList.add('error-message');
+                errorP.textContent = `Error fetching more articles: ${error.message}`;
+                resultsContainer.appendChild(errorP);
+            }
         }
-        state.setTotalPages(state.currentPage); // Prevent further loading attempts on error
+        state.setTotalPages(state.currentPage); 
     } finally {
         state.setIsLoadingMoreArticles(false);
         uiManager.showLoadingIndicator(false);
@@ -122,27 +123,21 @@ async function initializeAppSettings() {
         const initialBackendConfig = await apiService.fetchInitialConfigData();
         console.log("MainScript: Initial backend config fetched:", initialBackendConfig);
 
-        // Load configurations (localStorage, defaults from backend)
         configManager.loadConfigurations(initialBackendConfig);
-        
-        // Set initial state for dbFeedSources from backend config
         state.setDbFeedSources(initialBackendConfig.all_db_feed_sources || []);
+        
+        // loadAndRenderDbFeeds will call the callback to renderFeedFilterButtons
+        await feedHandler.loadAndRenderDbFeeds(); 
 
-        // Load feeds into setup tab & render main page filter buttons
-        // feedHandler.loadAndRenderDbFeeds needs the callback to uiManager
-        await feedHandler.loadAndRenderDbFeeds(); // This now internally calls the callback to uiManager.renderFeedFilterButtons
+        uiManager.updateActiveTagFiltersUI(handleRemoveTagFilter); 
+        uiManager.showSection('main-feed-section'); 
 
-        uiManager.updateActiveTagFiltersUI(handleRemoveTagFilter); // Initial UI update for tags
-        uiManager.showSection('main-feed-section'); // Show main feed by default
-
-        // Initial fetch of articles
         if (state.dbFeedSources.length > 0 || state.activeTagFilterIds.length > 0 || state.currentKeywordSearch) {
             console.log("MainScript: Calling fetchAndDisplaySummaries for the first time.");
             await fetchAndDisplaySummaries(false, 1, state.currentKeywordSearch);
         } else {
             console.log("MainScript: No DB feed sources or active filters, not calling fetchAndDisplaySummaries initially.");
             uiManager.setResultsContainerContent('<p>No RSS feeds configured. Please add some in the Setup tab, or try searching.</p>');
-            // Ensure filter buttons are rendered even if no feeds, uiManager.renderFeedFilterButtons is called by feedHandler
         }
 
     } catch (error) {
@@ -160,19 +155,18 @@ function handleArticleTagClick(tagId, tagName) {
     console.log(`MainScript: Tag clicked - ID: ${tagId}, Name: ${tagName}`);
     const tagIndex = state.activeTagFilterIds.findIndex(t => t.id === tagId);
 
-    if (tagIndex > -1) { // Tag is already active, so deactivate it
+    if (tagIndex > -1) { 
         state.removeActiveTagFilter(tagId);
-    } else { // Tag is not active, so activate it
+    } else { 
         state.addActiveTagFilter({ id: tagId, name: tagName });
     }
     
-    // When a tag is clicked, typically keyword and feed filters are cleared
     state.setActiveFeedFilterIds([]);
     state.setCurrentKeywordSearch(null);
-    if(keywordSearchInput) keywordSearchInput.value = ''; // Clear search input UI
+    if(keywordSearchInput) keywordSearchInput.value = ''; 
 
-    uiManager.updateFeedFilterButtonStyles(); // Reflect cleared feed filters
-    uiManager.updateActiveTagFiltersUI(handleRemoveTagFilter); // Update tag display
+    uiManager.updateFeedFilterButtonStyles(); 
+    uiManager.updateActiveTagFiltersUI(handleRemoveTagFilter); 
     
     state.setCurrentPage(1);
     fetchAndDisplaySummaries(false, 1, null);
@@ -181,9 +175,8 @@ function handleArticleTagClick(tagId, tagName) {
 function handleRemoveTagFilter(tagIdToRemove) {
     console.log(`MainScript: Removing tag filter for ID: ${tagIdToRemove}`);
     state.removeActiveTagFilter(tagIdToRemove);
-    uiManager.updateActiveTagFiltersUI(handleRemoveTagFilter); // Re-render active tags
+    uiManager.updateActiveTagFiltersUI(handleRemoveTagFilter); 
     
-    // Deselect the tag in the article cards visually (optional, if tags have an 'active-filter-tag' class)
     document.querySelectorAll(`.article-tag[data-tag-id='${tagIdToRemove}']`).forEach(el => el.classList.remove('active-filter-tag'));
 
     state.setCurrentPage(1);
@@ -193,12 +186,11 @@ function handleRemoveTagFilter(tagIdToRemove) {
 function handleFeedFilterClick(feedId) {
     console.log(`MainScript: Feed filter clicked for ID: ${feedId}`);
     if (state.activeFeedFilterIds.includes(feedId)) {
-        state.setActiveFeedFilterIds([]); // Deselect if already active (toggle behavior)
+        state.setActiveFeedFilterIds([]); 
     } else {
-        state.setActiveFeedFilterIds([feedId]); // Select this one feed
+        state.setActiveFeedFilterIds([feedId]); 
     }
 
-    // When a feed filter is applied, clear tag and keyword filters
     state.setActiveTagFilterIds([]);
     state.setCurrentKeywordSearch(null);
     if(keywordSearchInput) keywordSearchInput.value = '';
@@ -212,25 +204,27 @@ function handleFeedFilterClick(feedId) {
 
 function handleAllFeedsClick() {
     console.log("MainScript: 'All Feeds' button clicked.");
-    if (state.activeFeedFilterIds.length === 0 && state.activeTagFilterIds.length === 0 && !state.currentKeywordSearch) return; // No change if already showing all
+    if (state.activeFeedFilterIds.length === 0 && state.activeTagFilterIds.length === 0 && !state.currentKeywordSearch) return; 
     
     state.setActiveFeedFilterIds([]);
-    // Optionally, decide if 'All Feeds' should also clear tag/keyword filters
-    // state.setActiveTagFilterIds([]);
-    // state.setCurrentKeywordSearch(null);
-    // if(keywordSearchInput) keywordSearchInput.value = '';
-
     uiManager.updateFeedFilterButtonStyles();
-    // uiManager.updateActiveTagFiltersUI(handleRemoveTagFilter);
-    
     state.setCurrentPage(1);
-    fetchAndDisplaySummaries(false, 1, state.currentKeywordSearch); // Fetch with current keyword, but all feeds/tags
+    fetchAndDisplaySummaries(false, 1, state.currentKeywordSearch); 
 }
 
 async function handleRegenerateSummaryFormSubmit(event) {
     event.preventDefault();
-    const articleId = document.getElementById('modal-article-id-input')?.value;
-    let customPrompt = document.getElementById('modal-summary-prompt-input')?.value.trim();
+    const articleIdEl = document.getElementById('modal-article-id-input');
+    const customPromptEl = document.getElementById('modal-summary-prompt-input');
+
+    if (!articleIdEl || !customPromptEl) {
+        console.error("MainScript: Regenerate summary modal form elements not found.");
+        alert("Error: Could not find modal elements.");
+        return;
+    }
+    const articleId = articleIdEl.value;
+    let customPrompt = customPromptEl.value.trim();
+
 
     if (!articleId) {
         alert("Error: Article ID not found for regeneration.");
@@ -241,7 +235,7 @@ async function handleRegenerateSummaryFormSubmit(event) {
         alert("The custom prompt must include the placeholder {text}.");
         return;
     }
-    if (!customPrompt) customPrompt = null; // Send null if empty to use backend default
+    if (!customPrompt) customPrompt = null; 
 
     const summaryElement = document.getElementById(`summary-text-${articleId}`);
     const articleCardElement = document.getElementById(`article-db-${articleId}`);
@@ -259,7 +253,6 @@ async function handleRegenerateSummaryFormSubmit(event) {
                  summaryElement.innerHTML += `<p class="error-message">${updatedArticle.error_message}</p>`;
             }
         }
-        // Potentially update tags in UI if they were also regenerated and returned
     } catch (error) {
         console.error("MainScript: Error regenerating summary:", error);
         if (summaryElement) summaryElement.innerHTML = `<p class="error-message">Error: ${error.message}</p>`;
@@ -281,7 +274,6 @@ function handleRegenerateModalUseDefaultPrompt() {
 function setupGlobalEventListeners() {
     console.log("MainScript: Setting up global event listeners...");
 
-    // Keyword Search
     keywordSearchInput = document.getElementById('keyword-search-input');
     keywordSearchBtn = document.getElementById('keyword-search-btn');
     if (keywordSearchBtn && keywordSearchInput) {
@@ -289,7 +281,6 @@ function setupGlobalEventListeners() {
             const searchTerm = keywordSearchInput.value.trim();
             console.log("MainScript: Keyword search initiated for:", searchTerm || "clearing search");
             state.setCurrentKeywordSearch(searchTerm || null);
-            // Keyword search typically clears feed/tag filters
             state.setActiveFeedFilterIds([]);
             state.setActiveTagFilterIds([]);
             uiManager.updateFeedFilterButtonStyles();
@@ -303,11 +294,8 @@ function setupGlobalEventListeners() {
                 keywordSearchBtn.click();
             }
         });
-    } else {
-        console.warn("MainScript: Keyword search elements not found.");
-    }
+    } else { console.warn("MainScript: Keyword search elements not found."); }
 
-    // Refresh News Button
     refreshNewsBtn = document.getElementById('refresh-news-btn');
     if (refreshNewsBtn) {
         refreshNewsBtn.addEventListener('click', async () => {
@@ -316,11 +304,10 @@ function setupGlobalEventListeners() {
             try {
                 const result = await apiService.triggerRssRefresh();
                 alert(result.message || "RSS refresh initiated. New articles will appear after processing.");
-                // Optionally, add a delay then refresh the current view
                 setTimeout(() => {
-                    state.setCurrentPage(1); // Reset to page 1
+                    state.setCurrentPage(1); 
                     fetchAndDisplaySummaries(false, 1, state.currentKeywordSearch);
-                }, 3000); // 3-second delay
+                }, 3000); 
             } catch (error) {
                 console.error("MainScript: Error triggering RSS refresh:", error);
                 alert(`Error triggering refresh: ${error.message}`);
@@ -328,24 +315,16 @@ function setupGlobalEventListeners() {
                 uiManager.showLoadingIndicator(false);
             }
         });
-    } else {
-        console.warn("MainScript: Refresh news button not found.");
-    }
+    } else { console.warn("MainScript: Refresh news button not found."); }
     
-    // Delete Old Data Button
     deleteOldDataBtn = document.getElementById('delete-old-data-btn');
     daysOldInput = document.getElementById('days-old-input');
     deleteStatusMessage = document.getElementById('delete-status-message');
     if (deleteOldDataBtn && daysOldInput && deleteStatusMessage) {
         deleteOldDataBtn.addEventListener('click', async () => {
             const days = parseInt(daysOldInput.value);
-            if (isNaN(days) || days <= 0) {
-                alert("Please enter a valid positive number of days.");
-                return;
-            }
-            if (!confirm(`Are you sure you want to delete all articles older than ${days} days? This cannot be undone.`)) {
-                return;
-            }
+            if (isNaN(days) || days <= 0) { alert("Please enter a valid positive number of days."); return; }
+            if (!confirm(`Are you sure you want to delete all articles older than ${days} days? This cannot be undone.`)) return;
             deleteStatusMessage.textContent = "Deleting old data...";
             deleteStatusMessage.style.color = 'inherit';
             try {
@@ -353,7 +332,7 @@ function setupGlobalEventListeners() {
                 alert(result.message || "Old data cleanup process completed.");
                 deleteStatusMessage.textContent = result.message || "Cleanup complete.";
                 deleteStatusMessage.style.color = 'green';
-                state.setCurrentPage(1); // Refresh view
+                state.setCurrentPage(1); 
                 fetchAndDisplaySummaries(false, 1, state.currentKeywordSearch);
             } catch (error) {
                 console.error("MainScript: Error deleting old data:", error);
@@ -362,20 +341,13 @@ function setupGlobalEventListeners() {
                 deleteStatusMessage.style.color = 'red';
             }
         });
-    } else {
-        console.warn("MainScript: Delete old data elements not found.");
-    }
+    } else { console.warn("MainScript: Delete old data elements not found."); }
 
-    // Regenerate Summary Modal Form
     regeneratePromptForm = document.getElementById('regenerate-prompt-form');
     if (regeneratePromptForm) {
         regeneratePromptForm.addEventListener('submit', handleRegenerateSummaryFormSubmit);
-    } else {
-        console.warn("MainScript: Regenerate summary form not found.");
-    }
+    } else { console.warn("MainScript: Regenerate summary form not found."); }
 
-
-    // Infinite Scroll
     window.addEventListener('scroll', () => {
         if ((window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 300) && !state.isLoadingMoreArticles && state.currentPage < state.totalPages) {
             console.log("MainScript: Reached bottom of page, loading more articles...");
@@ -383,7 +355,6 @@ function setupGlobalEventListeners() {
             fetchAndDisplaySummaries(false, state.currentPage, state.currentKeywordSearch);
         }
     });
-
     console.log("MainScript: Global event listeners set up.");
 }
 
@@ -392,24 +363,20 @@ function setupGlobalEventListeners() {
 document.addEventListener('DOMContentLoaded', async () => {
     console.log("MainScript: DOMContentLoaded event fired. Script execution starting...");
 
-    // Initialize all modules that need DOM references
     uiManager.initializeUIDOMReferences();
     configManager.initializeDOMReferences();
     chatHandler.initializeChatDOMReferences();
-    // feedHandler needs a callback to uiManager's function
     feedHandler.initializeFeedHandlerDOMReferences(() => {
+        // This callback is passed to feedHandler so it can trigger uiManager
+        // to re-render feed filter buttons after feeds are loaded/changed.
         uiManager.renderFeedFilterButtons(handleFeedFilterClick, handleAllFeedsClick);
     });
 
-
-    // Setup event listeners for each module
-    // uiManager basic listeners (modal close, nav)
     uiManager.setupUIManagerEventListeners(
-        handleRegenerateModalUseDefaultPrompt, // Callback for 'Use Default' in regen modal
-        handleRegenerateSummaryFormSubmit      // Callback for regen modal form submission (already set on form, this is for other potential ui events)
+        handleRegenerateModalUseDefaultPrompt
     );
     configManager.setupFormEventListeners({
-        onArticlesPerPageChange: () => { // Callback when articles per page changes
+        onArticlesPerPageChange: () => { 
             state.setCurrentPage(1);
             fetchAndDisplaySummaries(false, 1, state.currentKeywordSearch);
         }
@@ -417,10 +384,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     chatHandler.setupChatModalEventListeners();
     feedHandler.setupFeedHandlerEventListeners();
     
-    // Setup event listeners handled directly by this main script
     setupGlobalEventListeners();
-
-    // Initialize application settings and load initial data
     await initializeAppSettings();
     
     console.log("MainScript: Full application initialization complete.");

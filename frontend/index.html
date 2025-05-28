@@ -19,6 +19,7 @@
     <link rel="stylesheet" href="/static/css/setup_page.css">
     <link rel="stylesheet" href="/static/css/footer.css">
     <link rel="stylesheet" href="/static/css/responsive.css"> 
+
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js" defer></script>
 </head>
 <body>
@@ -56,14 +57,14 @@
 
                 <div id="results-container" class="results-grid">
                     </div>
-                <div id="infinite-scroll-loading-indicator" class="loading" style="display: none;"> <div class="spinner"></div>
+                <div id="infinite-scroll-loading-indicator" class="loading" style="display: none;">
+                    <div class="spinner"></div>
                     <span>Loading more articles...</span>
                 </div>
             </section>
 
             <section id="setup-section" class="content-section">
                 <h2>Setup & Preferences</h2>
-
                 <div class="setup-block">
                     <h3>Content Preferences</h3>
                     <form id="content-prefs-form">
@@ -89,10 +90,8 @@
                     <p>Current default fetch interval: <span id="current-rss-fetch-interval-display">60</span> minutes.</p>
                 </div>
 
-
                 <div class="setup-block">
                     <h3>Manage RSS Feed URLs</h3>
-                    <p>Add or remove RSS feed sources. Fetch interval can be set per feed.</p>
                     <form id="add-rss-feed-form">
                         <div class="form-group">
                             <label for="rss-feed-url-input">New RSS Feed URL:</label>
@@ -109,16 +108,11 @@
                         <button type="submit" class="submit-button">Add Feed</button>
                     </form>
                     <h4>Current RSS Feeds in Database:</h4>
-                    <ul id="rss-feeds-list">
-                        </ul>
+                    <ul id="rss-feeds-list"></ul>
                 </div>
 
                 <div class="setup-block">
                     <h3>AI Prompt Configuration</h3>
-                    <p>Customize the prompts used for generating summaries, tags, and chat responses.
-                        Placeholders: Summary: {text}, Tags: {text}, Chat: {article_text}, {question}.
-                        Ensure your prompts instruct the AI to use Markdown for formatting if desired.
-                    </p>
                     <form id="ai-prompts-form">
                         <div class="form-group">
                             <label for="summary-prompt-input">Summary Prompt:</label>
@@ -128,23 +122,20 @@
                         <div class="form-group">
                             <label for="tag-generation-prompt-input">Tag Generation Prompt:</label>
                             <textarea id="tag-generation-prompt-input" rows="4" placeholder="Enter your custom tag generation prompt..."></textarea>
-                            <small>Default will be used if empty. Must contain {text}. Expected output: comma-separated tags.</small>
+                            <small>Default will be used if empty. Must contain {text}.</small>
                         </div>
                         <div class="form-group">
                             <label for="chat-prompt-input">Chat Prompt:</label>
                             <textarea id="chat-prompt-input" rows="4" placeholder="Enter your custom chat prompt..."></textarea>
-                             <small>Default will be used if empty. Expected placeholders: {article_text}, {question}. Or for no article: {question}.</small>
+                             <small>Default will be used if empty. Expected: {article_text}, {question}.</small>
                         </div>
                         <button type="submit" class="submit-button">Save Prompts</button>
                         <button type="button" id="reset-prompts-btn" class="action-button" style="margin-left: 10px;">Reset to Defaults</button>
                     </form>
-                    <h4>Current Prompts (Raw - Markdown will be rendered in output):</h4>
-                    <p><strong>Summary Prompt Preview:</strong></p>
-                    <pre id="current-summary-prompt-display" class="prompt-preview"></pre>
-                    <p><strong>Tag Generation Prompt Preview:</strong></p>
-                    <pre id="current-tag-generation-prompt-display" class="prompt-preview"></pre>
-                    <p><strong>Chat Prompt Preview:</strong></p>
-                    <pre id="current-chat-prompt-display" class="prompt-preview"></pre>
+                    <h4>Current Prompts:</h4>
+                    <p><strong>Summary:</strong></p><pre id="current-summary-prompt-display" class="prompt-preview"></pre>
+                    <p><strong>Tag Gen:</strong></p><pre id="current-tag-generation-prompt-display" class="prompt-preview"></pre>
+                    <p><strong>Chat:</strong></p><pre id="current-chat-prompt-display" class="prompt-preview"></pre>
                 </div>
 
                  <div class="setup-block">
@@ -160,13 +151,12 @@
                         </div>
                         <button type="submit" class="submit-button">Set API URLs</button>
                     </form>
-                    <p>Current Summaries API URL: <span id="current-api-url-display">/api/get-news-summaries</span></p>
-                    <p>Current Chat API URL: <span id="current-chat-api-url-display">/api/chat-with-article</span></p>
+                    <p>Current Summaries URL: <span id="current-api-url-display">/api/get-news-summaries</span></p>
+                    <p>Current Chat URL: <span id="current-chat-api-url-display">/api/chat-with-article</span></p>
                 </div>
 
                 <div class="setup-block">
                     <h3>Data Management</h3>
-                    <p>Perform cleanup operations on the stored data.</p>
                     <div class="form-group">
                         <label for="days-old-input">Delete articles older than (days):</label>
                         <input type="number" id="days-old-input" value="30" min="1" max="3650" style="max-width: 100px;">
@@ -185,7 +175,7 @@
         <div class="modal-content">
             <span class="close-button" id="close-regenerate-modal-btn">&times;</span>
             <h3>Regenerate Summary</h3>
-            <p>Edit the prompt below or use the current default. The placeholder {text} will be replaced with the article content.</p>
+            <p>Edit the prompt below or use the current default. {text} will be replaced.</p>
             <form id="regenerate-prompt-form">
                 <div class="form-group">
                     <label for="modal-summary-prompt-input">Summary Prompt:</label>
@@ -203,16 +193,27 @@
             <span class="close-button" id="close-article-chat-modal-btn">&times;</span>
             <h3>Chat About Article</h3>
             <div class="chat-modal-body">
-                <div class="chat-modal-article-preview" id="chat-modal-article-preview-content">
-                    </div>
+                <div class="chat-modal-article-preview" id="chat-modal-article-preview-content"></div>
                 <div class="chat-modal-chat-interface">
-                    <div id="chat-modal-history" class="chat-response">
-                        </div>
+                    <div id="chat-modal-history" class="chat-response"></div>
                     <div class="chat-input-group">
                         <input type="text" id="chat-modal-question-input" class="chat-question-input" placeholder="Your question...">
                         <button id="chat-modal-ask-button" class="chat-ask-button">Ask</button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="full-article-modal" class="modal full-article-modal-container" style="display:none;">
+        <div class="modal-content full-article-modal-content">
+            <span class="close-button" id="close-full-article-modal-btn">&times;</span>
+            <h3 id="full-article-modal-title">Full Article</h3>
+            <div id="full-article-modal-body" class="article-content-display">
+                <p class="loading-text-modal">Loading full article content...</p>
+            </div>
+            <div class="full-article-modal-footer">
+                <a href="#" id="full-article-modal-original-link" class="button-like-link" target="_blank" rel="noopener noreferrer">View Original on Publisher's Site</a>
             </div>
         </div>
     </div>

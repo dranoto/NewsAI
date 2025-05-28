@@ -1,24 +1,24 @@
 # app/main_api.py
 import logging
-import asyncio # For asyncio.Lock, though the lock itself is now in tasks.py
-from datetime import datetime, timezone, timedelta # Added timedelta
+import asyncio 
+from datetime import datetime, timezone, timedelta
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 # Langchain and LLM related imports
-from langchain_google_genai import GoogleGenerativeAI # For type hinting LLM instances
+from langchain_google_genai import GoogleGenerativeAI 
 
 # APScheduler imports
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 # Relative imports for application modules
-from . import database # For create_db_and_tables, db_session_scope
-from . import config as app_config # For application configurations
-from . import summarizer # For initialize_llm function
-from . import rss_client # For add_initial_feeds_to_db
-from . import tasks # For trigger_rss_update_all_feeds task
+from . import database 
+from . import config as app_config 
+from . import summarizer 
+from . import rss_client 
+from . import tasks 
 
 # Import router modules
 from .routers import (
@@ -26,7 +26,8 @@ from .routers import (
     feed_routes,
     article_routes,
     chat_routes,
-    admin_routes
+    admin_routes,
+    content_routes # Added import for the new content router
 )
 
 # Configure basic logging
@@ -34,9 +35,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 # --- Global Variables ---
-# These LLM instances will be initialized in the startup_event.
-# They are kept as globals here for clarity during initialization,
-# but routers will access them via app.state and dependency injection.
 llm_summary_instance_global: GoogleGenerativeAI | None = None
 llm_chat_instance_global: GoogleGenerativeAI | None = None
 llm_tag_instance_global: GoogleGenerativeAI | None = None
@@ -47,21 +45,13 @@ scheduler = AsyncIOScheduler(timezone="UTC")
 # FastAPI application instance
 app = FastAPI(
     title="News Summarizer API & Frontend (Refactored)",
-    version="2.0.0", # Updated version for refactor
-    description="API for fetching, summarizing, tagging, and chatting with news articles from RSS feeds."
+    version="2.1.0", # Updated version for new feature
+    description="API for fetching, summarizing, tagging, chatting with, and viewing full content of news articles."
 )
 
 # --- Application Lifecycle Events (Startup & Shutdown) ---
 @app.on_event("startup")
 async def startup_event():
-    """
-    Handles application startup logic:
-    - Initializes database tables.
-    - Adds initial RSS feeds if configured.
-    - Initializes LLM instances for summarization, chat, and tagging and stores them in app.state.
-    - Starts the APScheduler for periodic RSS feed updates.
-    """
-    # Use global keyword to modify the global instances
     global llm_summary_instance_global, llm_chat_instance_global, llm_tag_instance_global, scheduler
     logger.info("MAIN_API: Application startup sequence initiated...")
 
@@ -126,7 +116,6 @@ async def startup_event():
             llm_summary_instance_global = None
             llm_chat_instance_global = None
             llm_tag_instance_global = None
-            # Also ensure app.state attributes are not set or are None if init fails
             app.state.llm_summary_instance = None
             app.state.llm_chat_instance = None
             app.state.llm_tag_instance = None
@@ -157,11 +146,7 @@ async def startup_event():
 
 @app.on_event("shutdown")
 def shutdown_event():
-    """
-    Handles application shutdown logic:
-    - Shuts down the APScheduler if it's running.
-    """
-    global scheduler # Ensure we're referring to the global scheduler instance
+    global scheduler 
     logger.info("MAIN_API: Application shutdown sequence initiated...")
     if scheduler.running:
         logger.info("MAIN_API: Shutting down APScheduler...")
@@ -179,6 +164,7 @@ app.include_router(feed_routes.router)
 app.include_router(article_routes.router)
 app.include_router(chat_routes.router)
 app.include_router(admin_routes.router)
+app.include_router(content_routes.router) # Added the new content_routes router
 logger.info("MAIN_API: All API routers included.")
 
 # --- Static Files & Root Endpoint ---
@@ -190,9 +176,6 @@ except RuntimeError as e:
 
 @app.get("/", response_class=FileResponse, include_in_schema=False)
 async def serve_index_html():
-    """
-    Serves the main index.html file for the frontend application.
-    """
     index_html_path = "static_frontend/index.html"
     import os
     if not os.path.exists(index_html_path):
@@ -200,6 +183,3 @@ async def serve_index_html():
     return FileResponse(index_html_path)
 
 logger.info("MAIN_API: FastAPI application initialized and configured.")
-
-# To run this application (example using uvicorn):
-# uvicorn app.main_api:app --reload

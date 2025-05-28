@@ -20,7 +20,7 @@ class InitialConfigResponse(BaseModel):
     use_headless_browser: bool
 
     class Config:
-        from_attributes = True
+        from_attributes = True # or orm_mode = True for Pydantic v1
 
 class FeedSourceResponse(BaseModel):
     """
@@ -40,7 +40,7 @@ class NewsPageQuery(BaseModel):
     Includes pagination, filtering, and custom prompt options.
     """
     page: int = 1
-    page_size: int = Field(default_factory=lambda: 10) # Defaulting to a common page size, can be overridden by app_config.DEFAULT_PAGE_SIZE logic
+    page_size: int = Field(default_factory=lambda: 10) 
     feed_source_ids: Optional[List[int]] = None
     tag_ids: Optional[List[int]] = None
     keyword: Optional[str] = None
@@ -63,7 +63,7 @@ class ArticleResult(BaseModel):
     """
     id: int
     title: Optional[str] = None
-    url: str
+    url: str # This is the original article URL
     summary: Optional[str] = None
     publisher: Optional[str] = None
     published_date: Optional[datetime] = None
@@ -90,7 +90,7 @@ class ChatHistoryItem(BaseModel):
     """
     Model for a single item in a chat history, representing either a user message or an AI response.
     """
-    role: str # "user" or "ai"
+    role: str 
     content: str
 
     class Config:
@@ -120,7 +120,7 @@ class AddFeedRequest(BaseModel):
     """
     url: HttpUrl
     name: Optional[str] = None
-    fetch_interval_minutes: Optional[int] = Field(default_factory=lambda: 60) # Defaulting, can be overridden by app_config.DEFAULT_RSS_FETCH_INTERVAL_MINUTES
+    fetch_interval_minutes: Optional[int] = Field(default_factory=lambda: 60)
 
 class UpdateFeedRequest(BaseModel):
     """
@@ -135,3 +135,17 @@ class RegenerateSummaryRequest(BaseModel):
     """
     custom_prompt: Optional[str] = None
     regenerate_tags: bool = True
+
+# NEW Pydantic Model for Sanitized Content Response
+class SanitizedArticleContentResponse(BaseModel):
+    """
+    Response model for returning the sanitized full HTML content of an article.
+    """
+    article_id: int
+    original_url: str
+    title: Optional[str] = None
+    sanitized_html_content: Optional[str] = None
+    error_message: Optional[str] = None
+
+    class Config:
+        from_attributes = True

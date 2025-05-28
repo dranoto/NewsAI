@@ -3,7 +3,7 @@
 /* Results Grid */
 .results-grid {
     display: grid;
-    grid-template-columns: 1fr; /* Default to 1 column for mobile-first */
+    grid-template-columns: 1fr; 
     gap: 25px; 
 }
 
@@ -17,18 +17,20 @@
     display: flex;
     flex-direction: column;
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    position: relative; /* For absolute positioning of regenerate button */
+    position: relative; /* This is crucial for absolute positioning of children */
 }
 .article-card:hover {
     transform: translateY(-5px);
     box-shadow: 0 8px 16px rgba(0,0,0,0.1);
 }
 
+/* REMOVED .article-card-actions container styling as icons are positioned individually */
+
 /* Regenerate Summary Button on Card */
 .regenerate-summary-btn {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: 15px; /* Position from the top of the card */
+    right: 15px; /* Position from the right of the card */
     background-color: #f39c12; 
     color: white;
     border: none;
@@ -36,24 +38,66 @@
     width: 30px;
     height: 30px;
     font-size: 16px; 
-    line-height: 30px; /* Center icon vertically */
+    line-height: 30px; 
     text-align: center;
     cursor: pointer;
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     transition: background-color 0.2s;
-    padding: 0; /* Remove default button padding */
+    padding: 0; 
+    display: flex; 
+    align-items: center;
+    justify-content: center;
+    z-index: 2; /* Ensure it's above other elements */
 }
 .regenerate-summary-btn:hover {
     background-color: #e67e22; 
 }
 .regenerate-summary-btn::before {
-    content: "\21BB"; /* Refresh symbol */
+    content: "\21BB"; 
 }
 
-.article-card h3 { /* Base styles in base.css */
+/* Direct Link Icon on Card - Positioned below the regenerate button */
+.direct-link-icon {
+    position: absolute;
+    top: 55px; /* (Initial top 15px + height of regen-btn 30px + 10px gap) */
+    right: 15px; /* Align with the regenerate button's right edge */
+    color: #3498db; 
+    font-size: 20px; 
+    text-decoration: none;
+    line-height: 1;
+    transition: color 0.2s;
+    display: inline-block; 
+    z-index: 2; /* Ensure it's above other elements */
+    /* To horizontally center it under the 30px wide button above:
+       The icon itself is about 20px wide. (30px - 20px) / 2 = 5px offset needed from the right edge's alignment.
+       So, if the regenerate button is 30px wide and at right: 15px, its center is 15px + 15px = 30px from right.
+       The icon is ~20px wide. To center it, its center should also be 30px from right.
+       So its right edge should be 30px - 10px (half icon width) = 20px.
+       This means `right: 20px;` might look more centered if icon is truly 20px.
+       Or, more simply, if the button is 30px wide, and icon is 20px wide, to center the icon
+       under the button, the icon's right edge should be `15px (card edge to button edge) + (30px - 20px)/2 = 15px + 5px = 20px`.
+       Let's try `right: 15px;` first for simple alignment of right edges, then adjust if needed.
+       If both icons should be perfectly centered horizontally relative to each other,
+       and the regenerate button is the reference, and it's 30px wide:
+       The link icon is roughly 20px wide. To make it appear centered under the 30px button,
+       its right edge should be `15px (card's padding) + ( (30px - 20px) / 2 ) = 20px`.
+       Let's adjust right for centering:
+    */
+    right: 20px; /* (15px from card edge + half of (30px button width - 20px icon width)) */
+
+}
+.direct-link-icon:hover {
+    color: #2980b9; 
+}
+/* Emoji is set via JS: directLinkIcon.innerHTML = "&#128279;"; */
+
+
+.article-card h3 { 
     font-size: 1.5em; 
+    margin-top: 0; 
     margin-bottom: 10px;
-    padding-right: 40px; /* Space for the regenerate button */
+    padding-right: 50px; /* Keep space for the icons */
+    line-height: 1.3; 
 }
 
 .article-meta-info {
@@ -64,34 +108,39 @@
     flex-wrap: wrap; 
     gap: 15px; 
 }
-.article-meta-info span { /* Individual meta items */
+.article-meta-info span { 
     display: inline-block; 
 }
 
-.article-card .source-link { /* Base 'a' styles in base.css */
-    display: inline-block; 
-    margin-bottom: 12px;
-    font-weight: bold;
+.read-full-article-btn {
+    background-color: #27ae60; 
+    color: white;
+    padding: 8px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.2s;
+    margin-bottom: 12px; 
+    align-self: flex-start;
+}
+.read-full-article-btn:hover {
+    background-color: #229954;
 }
 
-.article-card .summary { /* This is a div */
+
+.article-card .summary { 
     font-size: 0.95em;
     color: #555;
     margin-bottom: 15px;
-    flex-grow: 1; /* Allows summary to take available space */
+    flex-grow: 1; 
 }
-.article-card .summary p { /* Style paragraphs within summary div */
+.article-card .summary p { 
     margin-top: 0;
     margin-bottom: 0.5em;
 }
-.article-card .summary ul, .article-card .summary ol { /* Base list styles in base.css */
-    /* Add specific overrides if needed */
-}
-.article-card .summary li { /* Base list item styles in base.css */
-    /* Add specific overrides if needed */
-}
 
-.article-card .error-message { /* Error message specific to an article card */
+.article-card .error-message { 
     font-size: 0.85em;
     color: #c0392b; 
     background-color: #fadbd8; 
@@ -123,7 +172,7 @@
     color: white;
     border-color: #1abc9c;
 }
-.article-tag.active-filter-tag { /* When this tag is an active global filter */
+.article-tag.active-filter-tag { 
     background-color: #e74c3c;
     color: white;
     border-color: #c0392b;
@@ -131,7 +180,7 @@
 }
 
 /* Chat Button on Article Card */
-.open-chat-modal-btn { /* General button styles can be in forms.css, specific overrides here */
+.open-chat-modal-btn { 
     background-color: #3498db; 
     color: white;
     padding: 8px 15px;
@@ -140,8 +189,8 @@
     cursor: pointer;
     font-size: 0.9em;
     transition: background-color 0.2s;
-    margin-top: auto; /* Pushes button to the bottom of the card if card is flex column */
-    align-self: flex-start; /* Aligns to the start of the cross axis */
+    margin-top: auto; 
+    align-self: flex-start; 
 }
 .open-chat-modal-btn:hover {
     background-color: #2980b9;
